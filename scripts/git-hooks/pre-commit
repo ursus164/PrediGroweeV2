@@ -1,0 +1,99 @@
+#!/bin/bash
+
+# Git pre-commit hook - prosty security check
+# Kopiuj do: .git/hooks/pre-commit
+# lub użyj: ln -s ../../scripts/git-hooks/pre-commit .git/hooks/pre-commit
+
+echo "Running pre-commit security checks..."
+
+# Sprawdzenie czy są zmiany w plikach wrażliwych
+CHANGED_FILES=$(git diff --cached --name-only)
+
+# 1. Sprawdzenie czy nie commitujemy sekretów
+echo "Checking for secrets..."
+if echo "$CHANGED_FILES" | xargs grep -rI "password.*=.*['\"].*['\"]" 2>/dev/null | grep -v "POSTGRES_PASSWORD"; then
+    echo "❌ ERROR: Possible hardcoded password detected!"
+    echo "Please remove hardcoded secrets before committing."
+    exit 1
+fi
+
+if echo "$CHANGED_FILES" | xargs grep -rI "api[_-]?key.*=.*['\"].*['\"]" 2>/dev/null; then
+    echo "❌ ERROR: Possible hardcoded API key detected!"
+    exit 1
+fi
+
+# 2. Sprawdzenie czy nie commitujemy dużych plików
+echo "Checking file sizes..."
+for file in $CHANGED_FILES; do
+    if [ -f "$file" ]; then
+        size=$(wc -c < "$file")
+        if [ $size -gt 1048576 ]; then  # 1MB
+            echo "❌ ERROR: File $file is larger than 1MB ($size bytes)"
+            echo "Large files should not be committed to git"
+            exit 1
+        fi
+    fi
+done
+
+# 3. Sprawdzenie Dockerfile jeśli zmieniony
+if echo "$CHANGED_FILES" | grep -q "Dockerfile"; then
+    echo "Dockerfile changed, running checks..."
+
+    # Hadolint
+    if command -v hadolint &> /dev/null; then
+        echo "  Running hadolint..."
+        for dockerfile in $(echo "$CHANGED_FILES" | grep Dockerfile); do
+            if [ -f "$dockerfile" ]; then
+                hadolint_output=$(hadolint "$dockerfile" 2>&1)
+                if [ $? -ne 0 ]; then
+                    echo "❌ Hadolint found issues in $dockerfile:"
+                    echo "$hadolint_output"
+                    exit 1
+                fi
+            fi
+        done
+        echo "  ✓ Hadolint passed"
+    else
+        # Fallback - kilka prostych checkow
+        echo "Hadolint not installed, running basic checks..."
+
+        if grep -r "FROM.*:latest" */Dockerfile 2>/dev/null; then
+            echo "WARNING: Using :latest tag in Dockerfile is not recommended"
+        fi
+
+        for dockerfile in $(echo "$CHANGED_FILES" | grep Dockerfile); do
+            if ! grep -q "^USER" "$dockerfile"; then
+                echo "WARNING: $dockerfile doesn't specify USER (might run as root)"
+            fi
+        done
+    fi
+fi
+
+# 4. Sprawdzenie Go files
+if echo "$CHANGED_FILES" | grep -q "\.go$"; then
+    echo "Go files changed, running go fmt..."
+    go fmt ./... > /dev/null 2>&1
+
+    if command -v govulncheck &> /dev/null; then
+        echo "Running govulncheck..."
+        for service in auth quiz stats images admin; do
+            if echo "$CHANGED_FILES" | grep -q "^$service/"; then
+                echo "  Checking $service..."
+                (cd $service && govulncheck ./... > /tmp/govulncheck.out 2>&1)
+                if [ $? -ne 0 ]; then
+                    echo "⚠️  Vulnerabilities found in $service"
+                    cat /tmp/govulncheck.out
+                fi
+            fi
+        done
+    fi
+fi
+
+# 5. Sprawdzenie package.json
+if echo "$CHANGED_FILES" | grep -q "package.json"; then
+    echo "package.json changed, running npm audit..."
+    npm audit --audit-level=high 2>&1 | head -20
+fi
+
+echo "✅ Pre-commit checks passed!"
+exit 0

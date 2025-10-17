@@ -24,9 +24,6 @@ go.work.sum
 # http client test files
 *.http
 
-# scripts
-/scripts
-
 # certificates
 /certs
 
