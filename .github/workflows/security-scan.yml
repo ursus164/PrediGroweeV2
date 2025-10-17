@@ -1,0 +1,208 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Skanowanie codziennie o 2:00 (sprawdzanie nowych CVE)
+    - cron: "0 2 * * *"
+
+jobs:
+  hadolint:
+    name: Hadolint - Dockerfile Best Practices
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [auth, quiz, stats, images, admin]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ./${{ matrix.service }}/Dockerfile
+          failure-threshold: warning
+
+  dockerfile-lint:
+    name: Dockle - Dockerfile Security
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [auth, quiz, stats, images, admin]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Dockle
+        uses: erzz/dockle-action@v1
+        with:
+          image: local-build-${{ matrix.service }}
+          dockerfile: ./${{ matrix.service }}/Dockerfile
+          exit-code: 1
+          exit-level: WARN
+          failure-threshold: WARN
+
+  trivy-scan:
+    name: Trivy CVE Scan
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [auth, quiz, stats, images, admin]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ matrix.service }}:latest ./${{ matrix.service }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ matrix.service }}:latest
+          format: "sarif"
+          output: "trivy-results-${{ matrix.service }}.sarif"
+          severity: "CRITICAL,HIGH"
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: "trivy-results-${{ matrix.service }}.sarif"
+
+      - name: Run Trivy - Human Readable Report
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ matrix.service }}:latest
+          format: "table"
+          exit-code: 1
+          severity: "CRITICAL,HIGH"
+
+  sbom-generation:
+    name: Generate SBOM (Syft)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [auth, quiz, stats, images, admin]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ matrix.service }}:latest ./${{ matrix.service }}
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ matrix.service }}:latest
+          format: spdx-json
+          output-file: sbom-${{ matrix.service }}.spdx.json
+
+      - name: Upload SBOM as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: sbom-${{ matrix.service }}
+          path: sbom-${{ matrix.service }}.spdx.json
+
+  grype-scan:
+    name: Vulnerability Scan SBOM (Grype)
+    runs-on: ubuntu-latest
+    needs: sbom-generation
+    strategy:
+      matrix:
+        service: [auth, quiz, stats, images, admin]
+    steps:
+      - name: Download SBOM
+        uses: actions/download-artifact@v3
+        with:
+          name: sbom-${{ matrix.service }}
+
+      - name: Scan SBOM with Grype
+        uses: anchore/scan-action@v3
+        with:
+          sbom: sbom-${{ matrix.service }}.spdx.json
+          fail-build: true
+          severity-cutoff: high
+          output-format: sarif
+
+      - name: Upload Grype results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
+
+  dependency-check:
+    name: Go Dependencies Security Check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [auth, quiz, stats, images, admin]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.23"
+
+      - name: Run govulncheck
+        run: |
+          cd ${{ matrix.service }}
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  docker-compose-security:
+    name: Docker Compose Security Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Analyze docker-compose.yml
+        run: |
+          echo "Checking for security issues in docker-compose.yml"
+
+          # Sprawdzenie czy są hardcoded secrets
+          if grep -r "password" docker-compose.yml | grep -v "POSTGRES_PASSWORD" | grep -v "_PASSWORD="; then
+            echo "⚠️  WARNING: Potential hardcoded secrets found"
+            exit 1
+          fi
+
+          # Sprawdzenie czy są używane latest tagi
+          if grep -E "image:.*:latest" docker-compose.yml; then
+            echo "⚠️  WARNING: Using 'latest' tag is not recommended"
+          fi
+
+          echo "✅ Docker Compose security check passed"
+
+  security-summary:
+    name: Security Scan Summary
+    runs-on: ubuntu-latest
+    needs:
+      [
+        dockerfile-lint,
+        trivy-scan,
+        grype-scan,
+        dependency-check,
+        docker-compose-security,
+      ]
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          echo "## 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All security scans completed. Check individual job results for details." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Scans Performed:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Dockerfile Linting (Dockle)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Container Image CVE Scan (Trivy)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ SBOM Generation (Syft)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ SBOM Vulnerability Scan (Grype)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Go Dependencies Check (govulncheck)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Docker Compose Security Analysis" >> $GITHUB_STEP_SUMMARY
