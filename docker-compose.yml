@@ -1,0 +1,181 @@
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:8080"
+      - "3001:3000"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - auth
+      - images
+      - quiz
+      - stats
+      - admin
+
+  # Postgres for Auth
+  auth_db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=auth_user
+      - POSTGRES_PASSWORD=auth_password
+      - POSTGRES_DB=auth_db
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"  # Different port for local development
+
+  # Postgres for Quiz
+  quiz_db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=quiz_user
+      - POSTGRES_PASSWORD=quiz_password
+      - POSTGRES_DB=quiz_db
+    volumes:
+      - quiz_db_data:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"  # Different port for local development
+
+  # Postgres for Stats
+  stats_db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=stats_user
+      - POSTGRES_PASSWORD=stats_password
+      - POSTGRES_DB=stats_db
+    volumes:
+      - stats_db_data:/var/lib/postgresql/data
+    ports:
+      - "5436:5432"  # Different port for local development
+
+  images_db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=images_user
+      - POSTGRES_PASSWORD=images_password
+      - POSTGRES_DB=images_db
+    volumes:
+      - images_db_data:/var/lib/postgresql/data
+    ports:
+      - "5438:5432"  # Different port for local development
+
+  # Auth microservice
+  auth:
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    expose:
+      - "8080"
+    environment:
+      - DB_HOST=auth_db
+      - DB_PORT=5432
+      - DB_USER=auth_user
+      - DB_PASSWORD=auth_password
+      - DB_NAME=auth_db
+      - ENV=local
+      - JWT_SECRET=${JWT_SECRET}
+      - INTERNAL_API_KEY=api_key
+    depends_on:
+      - auth_db
+
+  # Images microservice
+  images:
+    build:
+      context: ./images
+      dockerfile: Dockerfile
+    expose:
+      - "8080"
+    environment:
+      - ENV=local
+      - DB_HOST=images_db
+      - DB_PORT=5432
+      - DB_USER=images_user
+      - DB_PASSWORD=images_password
+      - DB_NAME=images_db
+      - ENV=local
+    volumes:
+      - ./images_data:/app/images
+    depends_on:
+      - auth
+      - images_db
+
+  # Quiz microservice
+  quiz:
+    build:
+      context: ./quiz
+      dockerfile: Dockerfile
+    expose:
+      - "8080"
+    environment:
+      - DB_HOST=quiz_db
+      - DB_PORT=5432
+      - DB_USER=quiz_user
+      - DB_PASSWORD=quiz_password
+      - DB_NAME=quiz_db
+      - ENV=local
+      - INTERNAL_API_KEY=api_key
+    depends_on:
+      - quiz_db
+      - auth
+
+  stats:
+    build:
+        context: ./stats
+        dockerfile: Dockerfile
+    expose:
+      - "8080"
+    environment:
+      - DB_HOST=stats_db
+      - DB_PORT=5432
+      - DB_USER=stats_user
+      - DB_PASSWORD=stats_password
+      - DB_NAME=stats_db
+      - ENV=local
+      - INTERNAL_API_KEY=api_key
+    depends_on:
+        - stats_db
+        - auth
+  admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+    expose:
+      - "8080"
+    environment:
+      - ENV=local
+      - INTERNAL_API_KEY=api_key
+    depends_on:
+      - auth
+  frontend:
+    build:
+      context: ../PrediGroweeV2-UI
+      dockerfile: Dockerfile.dev
+      args:
+        - ENV=local
+        - NEXT_PUBLIC_GOOGLE_CLIENT_ID=711820824033-s1vvhg02269re31p02bs3snvk3lsnl3a.apps.googleusercontent.com
+        - NEXT_PUBLIC_AUTH_SERVICE_URL=http://localhost:8080/api/auth
+        - NEXT_PUBLIC_QUIZ_SERVICE_URL=http://localhost:8080/api/quiz
+        - NEXT_PUBLIC_STATS_SERVICE_URL=http://localhost:8080/api/stats
+        - NEXT_PUBLIC_IMAGES_SERVICE_URL=http://localhost:8080/api/images
+        - AUTH_SERVICE_INTERNAL_URL=http://auth:8080/auth
+    environment:
+      - ENV=local
+      - NEXT_PUBLIC_GOOGLE_CLIENT_ID=711820824033-s1vvhg02269re31p02bs3snvk3lsnl3a.apps.googleusercontent.com
+      - NEXT_PUBLIC_AUTH_SERVICE_URL=http://localhost:8080/api/auth
+      - NEXT_PUBLIC_QUIZ_SERVICE_URL=http://localhost:8080/api/quiz
+      - NEXT_PUBLIC_STATS_SERVICE_URL=http://localhost:8080/api/stats
+      - NEXT_PUBLIC_IMAGES_SERVICE_URL=http://localhost:8080/api/images
+      - AUTH_SERVICE_INTERNAL_URL=http://auth:8080/auth
+    volumes:
+      - ./content:/app/content
+    expose:
+      - "3000"
+
+volumes:
+  auth_db_data:
+  quiz_db_data:
+  stats_db_data:
+  images_db_data:
+  images_data:
+  content:

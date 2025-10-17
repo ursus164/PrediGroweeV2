@@ -1,0 +1,62 @@
+{
+  "sections": [
+    {
+      "title": "Data Collection and Usage",
+      "icon": "Storage",
+      "content": [
+        "Personal data (name, email) for account management",
+        "Professional information provided in surveys",
+        "Quiz responses and performance metrics",
+        "Device information and session data"
+      ]
+    },
+    {
+      "title": "Data Storage and Protection",
+      "icon": "Security",
+      "content": [
+        "Secure servers located in the European Union",
+        "Industry-standard encryption for data transmission",
+        "Limited access to authorized administrators only",
+        "Securely hashed passwords"
+      ]
+    },
+    {
+      "title": "Google Authentication",
+      "icon": "Google",
+      "content": [
+        "We receive your Google account email and name",
+        "We do not receive or store your Google password",
+        "We do not post to your Google account"
+      ]
+    },
+    {
+      "title": "Data Usage",
+      "icon": "Storage",
+      "content": [
+        "Account authentication and management",
+        "Research purposes in orthodontics (anonymized)",
+        "Improving educational effectiveness",
+        "Generating aggregated statistics"
+      ]
+    },
+    {
+      "title": "Data Rights",
+      "icon": "Gavel",
+      "content": [
+        "Access your personal data",
+        "Request data correction or deletion",
+        "Export your data in CSV format",
+        "Withdraw consent for data collection"
+      ]
+    },
+    {
+      "title": "Contact & Updates",
+      "icon": "Email",
+      "content": [
+        "For privacy inquiries contact: predigrowee2.0@gmail.com",
+        "Policy updates will be notified to users",
+        "Last updated: December 2024"
+      ]
+    }
+  ]
+}

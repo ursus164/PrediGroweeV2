@@ -1,0 +1,106 @@
+{
+  "introduction": {
+    "title": "About Predigrowee",
+    "content": "The Predigrowee app is a non-commercial project created by orthodontists and IT specialists focusing on the human ability to predict facial growth on the basis of cephalometric X-rays. This is the second version of the project - Predigrowee 2.0 which extends application features."
+  },
+  "publications": [
+    {
+      "authors": "Kaźmierczak, S., Juszka, Z., Vandevska-Radunovic, V., Maal, T.J.J., Fudalej, P., Mańdziuk, J.",
+      "year": "2021",
+      "title": "Prediction of the Facial Growth Direction is Challenging",
+      "publication": "Neural Information Processing. ICONIP 2021. Communications in Computer and Information Science, vol 1517. Springer, Cham",
+      "doi": "https://doi.org/10.1007/978-3-030-92310-5_77"
+    },
+    {
+      "authors": "Kaźmierczak, S., Juszka, Z., Grzeszczuk, R., Kurdziel, M., Vandevska-Radunovic, V., Fudalej, P., & Mańdziuk, J.",
+      "year": "2023",
+      "title": "Prediction of the facial growth direction: Regression perspective",
+      "publication": "Communications in Computer and Information Science (pp. 395–407)",
+      "doi": "https://doi.org/10.1007/978-981-99-1648-1_33"
+    },
+    {
+      "authors": "Juszka Z., Sokołowski W., Juszka D., Fudalej P.",
+      "year": "2023",
+      "title": "Predigrowee - the prototype of the web application for prediction of the facial growth : [abstract] ",
+      "publication": "W: EOS 2023 : European Orthodontic Society congress :[Oslo, Norway] : clinical posters.",
+      "doi": ""
+    },
+    {
+      "authors": "Juszka Z., Sokołowski W., Juszka D., Fudalej P.",
+      "year": "2024",
+      "title": "Machine learning vs human – who can predict facial growth more accurately? : preliminary results",
+      "publication": "W: EOS 2024 : 99th European Orthodontic Society Congress : Athens, Greece : scientific posters.",
+      "doi": ""
+    },
+    {
+      "authors": "Juszka Z., Sokołowski W., Juszka D., Fudalej P.",
+      "year": "2023",
+      "title": "Predigrowee: a proprietary application for predicting facial growth as an educational tool ",
+      "publication": "W: 24. zjazd PTO [electronic document] : 13–16.09.2023, Białystok : [abstract book].",
+      "doi": ""
+    },
+    {
+      "authors": "Juszka Z., Sokołowski W., Juszka D., Fudalej P.",
+      "year": "2023",
+      "title": "Prediction of facial growth direction using the Predigrowee Application",
+      "publication": "W: 24. zjazd PTO [electronic document] : 13–16.09.2023, Białystok : [abstract book].",
+      "doi": ""
+    }
+  ],
+  "faq": [
+    {
+      "title": "What is the Predigrowee app?",
+      "content": "Predigrowee is a non-commercial training platform for orthodontists, developed by clinicians and engineers, that helps you learn how to predict facial growth based on cephalometric X-rays.  It lets you test your skills on real-life cases by analyzing two growth-stage images — and then seeing the actual outcome years later.  <br><br> Our primary goal is to improve clinical intuition through repeated, focused practice. We’re also exploring how human predictions compare to artificial intelligence — and what we can learn from both."
+    },
+    {
+      "title": "Why do we want to try to predict facial growth?",
+      "content": "The direction, amount, and timing of facial growth are critical pieces of information in many fields — including orthodontics, pediatrics, criminology, and even historical research.  <br><br> But let’s focus on orthodontics. <br><br>Accurate facial growth prediction helps clinicians design more effective treatment plans. It allows them to initiate early treatment in patients who need growth modification, or delay treatment in those who don’t — reducing unnecessary interventions.  <br><br>Facial growth can be estimated using several methods, such as anthropometric analysis, cephalometric X-ray measurements, or CBCT scans. Each provides valuable input — but the key is knowing how to interpret and apply that information clinically."
+    },
+    {
+      "title": "What is the source of the cephalometric X-rays?",
+      "content": "In this project, we focused on cephalometric X-rays from AAOF Craniofacial Growth Legacy Collection.<br><br>Collections included: Bolton-Brush, Burlington, Denver, Fels Longitudinal, Forsyth Twin, Iowa, Mathews, Michigan, Oregon.<br><br>Please find more detailed information about the source of the X-rays here: <a href=\"https://www.aaoflegacycollection.org/aaof_home.html\">AAOF Legacy Collection</a>"
+    },
+    {
+      "title": "How many cases are there?",
+      "content": "There are 453 cases.<br><br>From the AAOF Craniofacial Growth Legacy Collection, we chose only those patients who had X-rays around the age of 9 (before the pubertal growth spurt), 12 (close to the pubertal growth spurt), and 18 (after the pubertal growth spurt).<br><br>We excluded patients who underwent orthodontic treatment – based on braces seen on the X-rays – or if the X-rays were unclear."
+    },
+    {
+      "title": "What are the types of facial growth?",
+      "content": "From a clinical perspective, facial growth can be classified into three main types: favorable, neutral, and unfavorable.  <br><br> Favorable growth (typically horizontal or forward) occurs when facial structures develop in a direction and intensity that support functional and esthetic treatment outcomes.  <br><br> Unfavorable growth (often vertical or backward) presents greater challenges — as it may complicate treatment, reduce long-term stability, or worsen facial proportions.  <br><br> Neutral growth lies between these extremes and generally does not strongly impact treatment planning in either direction.  <br><br> The classification takes into account the direction, intensity, and duration of facial growth — all of which influence diagnosis and timing of treatment."
+    },
+    {
+      "title": "What task do I have in this app?",
+      "content": "Your task is to predict the direction of facial growth based on a patient’s cephalometric X-rays and selected cephalometric measurements.  You’ll be asked to decide whether the growth is:  <br>Vertical (unfavorable),  <br>Horizontal (favorable), or <br>Normal (neutral).  <br><br>After making your prediction, you'll get immediate feedback — including the actual outcome at age 18 — so you can learn through real-life cases."
+    },
+    {
+      "title": "I have heard there are artificial intelligence algorytms that are able to predict facial growth. Why should I learn it though?",
+      "content": "Yes, AI can process patterns. But it can’t replace clinical judgment. Yet.<br><br> There are indeed algorithms designed to predict facial growth — and some of them can be surprisingly accurate. But here’s the reality: as of now, no AI can explain why a face will grow a certain way, or make treatment decisions in real-time clinical complexity. <br><br> Learning to recognize growth patterns with your own eyes is still essential. You don’t just train to memorize — you train to see, judge, and communicate with patients and other clinicians.  <br><br>Predigrowee helps you sharpen that judgment. <br><br> Because whether AI supports your diagnosis or not — you’re still the one responsible."
+    },
+    {
+      "title": "How is the correct answer determined?",
+      "content": "The correct answer is based on cephalometric measurements taken at age 18 — specifically: SN/MP angle, β (beta) angle, and PgNB angle <br><br> These indicators reflect the vertical or horizontal direction of mandibular growth and help classify each case as: horizontal, vertical, normal.  The classification was based on thresholds defined by experienced orthodontists and reflects skeletal growth patterns — not just visual impressions."
+    },
+    {
+      "title": "I think there is a bug. No way this is the correct answer",
+      "content": "We understand that some cases can be tricky — that’s exactly why this app exists: to train your clinical judgment. The “correct” answers are based on precise cephalometric measurements taken at age 18 (including SN/MP angle, beta angle, and PgNB angle), set by experienced orthodontists.  <br><br> However, we’re not perfect — if you think there’s a mistake, please send us the case details (case ID or screenshots) at predigrowee2.0@gmail.com, or clic \"report a bug\" in the question panel and describe the problem <br><br> We’ll check and fix it ASAP.  Your feedback helps us improve the app for everyone. <br><br> Keep practicing — these patterns become easier to recognize over time!"
+    }
+  ],
+  "team": {
+    "coordinator": {
+      "role": "Project coordinator",
+      "name": "Dawid Juszka, PhD PhD",
+      "affiliation": "AGH University of Krakow, Kraków, Poland"
+    },
+    "support": [
+      {
+        "name": "Zofia Juszka, DDS",
+        "affiliation": "Prof. Loster's Orthodontics, Kraków, Poland"
+      }
+    ],
+    "developer": {
+      "role": "Web Developer",
+      "name": "Adrian Markowski",
+      "affiliation": "Cybersecurity Student, AGH University of Krakow, Kraków, Poland"
+    }
+  }
+}
