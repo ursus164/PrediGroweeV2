@@ -33,7 +33,7 @@ func (a *ApiServer) Run() {
 	mux := http.NewServeMux()
 	a.registerRoutes(mux)
 	corsMiddleware := cors.New(cors.Options{
-		AllowedOrigins: []string{"http://localhost:3000", "https://predigrowee.agh.edu.pl",
+		AllowedOrigins: []string{"http://localhost:3000", "http://localhost:3001", "https://predigrowee.agh.edu.pl",
 			"https://www.predigrowee.agh.edu.pl"}, // Allow requests from this origin
 		AllowCredentials: true,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},  // Add the methods you need
