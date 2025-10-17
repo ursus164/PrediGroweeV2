@@ -103,6 +103,6 @@ func (a *ApiServer) registerRoutes(mux *http.ServeMux) {
 
 	leaderboardHandler := handlers.NewLeaderboardHandler(a.storage, a.logger)
     mux.HandleFunc("GET /stats/leaderboard", leaderboardHandler.Get)
-	
+
 	mux.HandleFunc("GET /stats/sessions/accuracy", middleware.InternalAuth(handlers.NewSessionsAccuracyHandler(a.storage, a.logger).Handle,a.logger,internalApiKey,),)
 }

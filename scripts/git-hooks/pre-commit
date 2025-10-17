@@ -69,16 +69,71 @@ if echo "$CHANGED_FILES" | grep -q "Dockerfile"; then
     fi
 fi
 
-# 4. Sprawdzenie Go files
+# 4. Sprawdzenie trailing whitespace
+echo "Checking for trailing whitespace..."
+if git diff --cached --check; then
+    echo "  ✓ No trailing whitespace"
+else
+    echo "❌ ERROR: Trailing whitespace found!"
+    echo "Fix with: git diff --cached --check"
+    exit 1
+fi
+
+# 5. Sprawdzenie merge conflicts
+echo "Checking for merge conflicts..."
+if echo "$CHANGED_FILES" | xargs grep -n "^<<<<<<< \|^=======$\|^>>>>>>> " 2>/dev/null; then
+    echo "❌ ERROR: Merge conflict markers found!"
+    exit 1
+fi
+
+# 6. Sprawdzenie Go files
 if echo "$CHANGED_FILES" | grep -q "\.go$"; then
-    echo "Go files changed, running go fmt..."
+    echo "Go files changed, running checks..."
+
+    # Go fmt
+    echo "  Running go fmt..."
     go fmt ./... > /dev/null 2>&1
 
-    if command -v govulncheck &> /dev/null; then
-        echo "Running govulncheck..."
+    # Go vet
+    echo "  Running go vet..."
+    for service in auth quiz stats images admin; do
+        if echo "$CHANGED_FILES" | grep -q "^$service/"; then
+            (cd $service && go vet ./... 2>&1) || {
+                echo "❌ go vet failed for $service"
+                exit 1
+            }
+        fi
+    done
+
+    # golangci-lint (jeśli dostępne)
+    if command -v golangci-lint &> /dev/null; then
+        echo "  Running golangci-lint..."
         for service in auth quiz stats images admin; do
             if echo "$CHANGED_FILES" | grep -q "^$service/"; then
-                echo "  Checking $service..."
+                (cd $service && golangci-lint run --timeout=5m) || {
+                    echo "⚠️  golangci-lint issues in $service"
+                }
+            fi
+        done
+    fi
+
+    # Go tests
+    echo "  Running go test..."
+    for service in auth quiz stats images admin; do
+        if echo "$CHANGED_FILES" | grep -q "^$service/"; then
+            echo "    Testing $service..."
+            (cd $service && go test ./... -short -timeout=30s) || {
+                echo "❌ Tests failed for $service"
+                exit 1
+            }
+        fi
+    done
+
+    # govulncheck (jeśli dostępne)
+    if command -v govulncheck &> /dev/null; then
+        echo "  Running govulncheck..."
+        for service in auth quiz stats images admin; do
+            if echo "$CHANGED_FILES" | grep -q "^$service/"; then
                 (cd $service && govulncheck ./... > /tmp/govulncheck.out 2>&1)
                 if [ $? -ne 0 ]; then
                     echo "⚠️  Vulnerabilities found in $service"
@@ -89,11 +144,36 @@ if echo "$CHANGED_FILES" | grep -q "\.go$"; then
     fi
 fi
 
-# 5. Sprawdzenie package.json
-if echo "$CHANGED_FILES" | grep -q "package.json"; then
-    echo "package.json changed, running npm audit..."
+# 7. Sprawdzenie package.json/package-lock.json
+if echo "$CHANGED_FILES" | grep -q "package.json\|package-lock.json"; then
+    echo "package.json changed, running checks..."
+
+    # npm audit
+    echo "  Running npm audit..."
     npm audit --audit-level=high 2>&1 | head -20
+
+    # prettier (jeśli dostępne i są pliki JS/TS)
+    if command -v prettier &> /dev/null; then
+        if echo "$CHANGED_FILES" | grep -q "\.[jt]sx\?$"; then
+            echo "  Running prettier check..."
+            echo "$CHANGED_FILES" | grep "\.[jt]sx\?$" | xargs prettier --check || {
+                echo "⚠️  Prettier formatting issues found"
+                echo "    Run: prettier --write <files>"
+            }
+        fi
+    fi
 fi
 
+# 8. Sprawdzenie YAML files (GitHub Actions workflows)
+if echo "$CHANGED_FILES" | grep -q "\.ya\?ml$"; then
+    echo "YAML files changed, checking syntax..."
+    if command -v yamllint &> /dev/null; then
+        echo "$CHANGED_FILES" | grep "\.ya\?ml$" | xargs yamllint || {
+            echo "⚠️  YAML linting issues (non-blocking)"
+        }
+    fi
+fi
+
+echo ""
 echo "✅ Pre-commit checks passed!"
 exit 0
