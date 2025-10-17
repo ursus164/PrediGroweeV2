@@ -33,6 +33,8 @@ go.work.sum
 # db backups
 /db_backups
 
+# db dumps
+database-init/**/*.sql
 
 # ide specific files
 .idea
