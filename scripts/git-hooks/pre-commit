@@ -98,10 +98,12 @@ if echo "$CHANGED_FILES" | grep -q "\.go$"; then
     echo "  Running go vet..."
     for service in auth quiz stats images admin; do
         if echo "$CHANGED_FILES" | grep -q "^$service/"; then
-            (cd $service && go vet ./... 2>&1) || {
-                echo "❌ go vet failed for $service"
+            VET_OUTPUT=$(cd $service && go vet ./... 2>&1)
+            if [ $? -ne 0 ]; then
+                echo "❌ go vet failed for $service:"
+                echo "$VET_OUTPUT"
                 exit 1
-            }
+            fi
         fi
     done
 
@@ -110,9 +112,12 @@ if echo "$CHANGED_FILES" | grep -q "\.go$"; then
         echo "  Running golangci-lint..."
         for service in auth quiz stats images admin; do
             if echo "$CHANGED_FILES" | grep -q "^$service/"; then
-                (cd $service && golangci-lint run --timeout=5m) || {
-                    echo "⚠️  golangci-lint issues in $service"
-                }
+                LINT_OUTPUT=$(cd $service && golangci-lint run --timeout=5m 2>&1)
+                if [ $? -ne 0 ]; then
+                    echo "❌ golangci-lint issues in $service:"
+                    echo "$LINT_OUTPUT" | head -50
+                    exit 1
+                fi
             fi
         done
     fi
@@ -122,10 +127,12 @@ if echo "$CHANGED_FILES" | grep -q "\.go$"; then
     for service in auth quiz stats images admin; do
         if echo "$CHANGED_FILES" | grep -q "^$service/"; then
             echo "    Testing $service..."
-            (cd $service && go test ./... -short -timeout=30s) || {
-                echo "❌ Tests failed for $service"
+            TEST_OUTPUT=$(cd $service && go test ./... -short -timeout=30s 2>&1)
+            if [ $? -ne 0 ]; then
+                echo "❌ Tests failed for $service:"
+                echo "$TEST_OUTPUT"
                 exit 1
-            }
+            fi
         fi
     done
 
@@ -134,10 +141,12 @@ if echo "$CHANGED_FILES" | grep -q "\.go$"; then
         echo "  Running govulncheck..."
         for service in auth quiz stats images admin; do
             if echo "$CHANGED_FILES" | grep -q "^$service/"; then
-                (cd $service && govulncheck ./... > /tmp/govulncheck.out 2>&1)
+                VULN_OUTPUT=$(cd $service && govulncheck ./... 2>&1)
                 if [ $? -ne 0 ]; then
-                    echo "⚠️  Vulnerabilities found in $service"
-                    cat /tmp/govulncheck.out
+                    echo "⚠️  Vulnerabilities found in $service:"
+                    echo "$VULN_OUTPUT" | head -30
+                    echo ""
+                    echo "Run 'cd $service && govulncheck ./...' for full details"
                 fi
             fi
         done
