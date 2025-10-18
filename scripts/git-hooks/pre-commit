@@ -122,6 +122,36 @@ if echo "$CHANGED_FILES" | grep -q "\.go$"; then
         done
     fi
 
+    # staticcheck (jeśli dostępne)
+    if command -v staticcheck &> /dev/null; then
+        echo "  Running staticcheck..."
+        for service in auth quiz stats images admin; do
+            if echo "$CHANGED_FILES" | grep -q "^$service/"; then
+                STATIC_OUTPUT=$(cd $service && staticcheck -checks all ./... 2>&1)
+                if [ $? -ne 0 ]; then
+                    echo "❌ staticcheck issues in $service:"
+                    echo "$STATIC_OUTPUT" | head -50
+                    exit 1
+                fi
+            fi
+        done
+    fi
+
+    # gosec (jeśli dostępne)
+    if command -v gosec &> /dev/null; then
+        echo "  Running gosec (security scanner)..."
+        for service in auth quiz stats images admin; do
+            if echo "$CHANGED_FILES" | grep -q "^$service/"; then
+                GOSEC_OUTPUT=$(cd $service && gosec -quiet ./... 2>&1)
+                if [ $? -ne 0 ]; then
+                    echo "❌ Security issues found by gosec in $service:"
+                    echo "$GOSEC_OUTPUT" | head -50
+                    exit 1
+                fi
+            fi
+        done
+    fi
+
     # Go tests
     echo "  Running go test..."
     for service in auth quiz stats images admin; do

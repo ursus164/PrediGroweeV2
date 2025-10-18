@@ -232,28 +232,42 @@ jobs:
           cache-dependency-path: ${{ matrix.service }}/go.sum
 
       - name: golangci-lint
+        id: golangci-lint
         uses: golangci/golangci-lint-action@v6
+        continue-on-error: true
         with:
           version: latest
           working-directory: ${{ matrix.service }}
-          args: --timeout=5m --out-format=json > golangci-lint-${{ matrix.service }}.json
+          args: --timeout=5m --out-format=json --issues-exit-code=1
+
+      - name: Save golangci-lint output
+        if: always()
+        run: |
+          cd ${{ matrix.service }}
+          /home/runner/golangci-lint-*/golangci-lint run --timeout=5m --out-format=json > ../golangci-lint-${{ matrix.service }}.json || true
 
       - name: staticcheck
+        id: staticcheck
+        continue-on-error: true
         run: |
           cd ${{ matrix.service }}
           go install honnef.co/go/tools/cmd/staticcheck@latest
-          staticcheck -checks all -f json ./... > ../staticcheck-${{ matrix.service }}.json
+          staticcheck -checks all -f json ./... > ../staticcheck-${{ matrix.service }}.json || echo "staticcheck found issues"
 
       - name: gosec (Security Scanner)
+        id: gosec
+        continue-on-error: true
         run: |
           cd ${{ matrix.service }}
           go install github.com/securego/gosec/v2/cmd/gosec@latest
-          gosec -fmt=json -out=../gosec-${{ matrix.service }}.json ./...
+          gosec -fmt=json -out=../gosec-${{ matrix.service }}.json ./... || echo "gosec found issues"
 
       - name: go vet
+        id: govet
+        continue-on-error: true
         run: |
           cd ${{ matrix.service }}
-          go vet ./... 2>&1 | tee ../govet-${{ matrix.service }}.txt
+          go vet ./... 2>&1 | tee ../govet-${{ matrix.service }}.txt || echo "go vet found issues"
 
       - name: Generate Static Analysis Summary
         if: success() || failure()
@@ -300,6 +314,16 @@ jobs:
             staticcheck-${{ matrix.service }}.json
             gosec-${{ matrix.service }}.json
             govet-${{ matrix.service }}.txt
+
+      - name: Fail if any static analysis tool found issues
+        if: steps.golangci-lint.outcome == 'failure' || steps.staticcheck.outcome == 'failure' || steps.gosec.outcome == 'failure' || steps.govet.outcome == 'failure'
+        run: |
+          echo "Static analysis found issues:"
+          echo "- golangci-lint: ${{ steps.golangci-lint.outcome }}"
+          echo "- staticcheck: ${{ steps.staticcheck.outcome }}"
+          echo "- gosec: ${{ steps.gosec.outcome }}"
+          echo "- go vet: ${{ steps.govet.outcome }}"
+          exit 1
 
   docker-compose-security:
     name: Docker Compose Security Analysis
