@@ -40,6 +40,20 @@ else
     HADOLINT_AVAILABLE=0
 fi
 
+# Go static analysis tools
+if command -v go &> /dev/null; then
+    echo -e "${GREEN}✅ go${NC}"
+    GO_AVAILABLE=1
+    
+    check_tool govulncheck
+    check_tool golangci-lint
+    check_tool staticcheck
+    check_tool gosec
+else
+    echo -e "${YELLOW}❌ go (not installed)${NC}"
+    GO_AVAILABLE=0
+fi
+
 if [ $TOOLS_MISSING -eq 1 ]; then
     echo ""
     echo "Install required tools:"
@@ -121,6 +135,42 @@ for service in "${SERVICES[@]}"; do
     fi
     cd ..
 done
+
+echo ""
+echo "Running Go Static Analysis..."
+if [ $GO_AVAILABLE -eq 1 ]; then
+    for service in "${SERVICES[@]}"; do
+        echo ""
+        echo "=== $service ==="
+        cd ./$service
+        
+        # golangci-lint
+        if command -v golangci-lint &> /dev/null; then
+            echo "  [1/4] golangci-lint..."
+            golangci-lint run --timeout=5m || echo "    ⚠️  Found issues"
+        fi
+        
+        # staticcheck
+        if command -v staticcheck &> /dev/null; then
+            echo "  [2/4] staticcheck..."
+            staticcheck -checks all ./... || echo "    ⚠️  Found issues"
+        fi
+        
+        # gosec
+        if command -v gosec &> /dev/null; then
+            echo "  [3/4] gosec (security)..."
+            gosec -fmt=golint -quiet ./... || echo "    ⚠️  Security issues found"
+        fi
+        
+        # go vet
+        echo "  [4/4] go vet..."
+        go vet ./... || echo "    ⚠️  Found issues"
+        
+        cd ..
+    done
+else
+    echo "⚠️  Go not installed - skipping static analysis"
+fi
 
 echo ""
 echo -e "${GREEN}✅ Scan has been finished!${NC}"

@@ -194,6 +194,47 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
 
+  static-analysis-go:
+    name: Go Static Analysis
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [auth, quiz, stats, images, admin]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.23"
+          cache-dependency-path: ${{ matrix.service }}/go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: ${{ matrix.service }}
+          args: --timeout=5m
+
+      - name: staticcheck
+        run: |
+          cd ${{ matrix.service }}
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          staticcheck -checks all ./...
+
+      - name: gosec (Security Scanner)
+        run: |
+          cd ${{ matrix.service }}
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -fmt=golint -quiet ./...
+
+      - name: go vet
+        run: |
+          cd ${{ matrix.service }}
+          go vet ./...
+
   docker-compose-security:
     name: Docker Compose Security Analysis
     runs-on: ubuntu-latest
@@ -223,24 +264,29 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [
+        hadolint,
         dockerfile-lint,
         trivy-scan,
+        sbom-generation,
         grype-scan,
         dependency-check,
+        static-analysis-go,
         docker-compose-security,
       ]
     if: always()
     steps:
       - name: Summary
         run: |
-          echo "## 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔒 Backend Security Scan Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "All security scans completed. Check individual job results for details." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Scans Performed:" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Dockerfile Linting (Dockle)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Dockerfile Best Practices (Hadolint)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Dockerfile Security Lint (Dockle)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Container Image CVE Scan (Trivy)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ SBOM Generation (Syft)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ SBOM Vulnerability Scan (Grype)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Go Dependencies Check (govulncheck)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Go Static Analysis (golangci-lint, staticcheck, gosec, go vet)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Docker Compose Security Analysis" >> $GITHUB_STEP_SUMMARY
