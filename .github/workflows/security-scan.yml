@@ -101,13 +101,18 @@ jobs:
           scanners: "vuln,secret"
           timeout: 15m
 
-      - name: Run Trivy vulnerability scanner (JSON for report)
+      - name: Run Trivy vulnerability scanner (JSON for report - all severities)
         uses: aquasecurity/trivy-action@master
         if: success() || failure()
         with:
           image-ref: ${{ matrix.service }}:latest
           format: "json"
           output: "trivy-report-${{ matrix.service }}.json"
+          exit-code: 0
+          ignore-unfixed: true
+          severity: "CRITICAL,HIGH,MEDIUM,LOW"
+          scanners: "vuln,secret"
+          timeout: 15m
           ignore-unfixed: true
           severity: "CRITICAL,HIGH"
           scanners: "vuln,secret"
@@ -232,31 +237,27 @@ jobs:
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
-        continue-on-error: true
         with:
           version: latest
           working-directory: ${{ matrix.service }}
           args: --timeout=5m --out-format=json > golangci-lint-${{ matrix.service }}.json
 
       - name: staticcheck
-        continue-on-error: true
         run: |
           cd ${{ matrix.service }}
           go install honnef.co/go/tools/cmd/staticcheck@latest
-          staticcheck -checks all -f json ./... > ../staticcheck-${{ matrix.service }}.json || true
+          staticcheck -checks all -f json ./... > ../staticcheck-${{ matrix.service }}.json
 
       - name: gosec (Security Scanner)
-        continue-on-error: true
         run: |
           cd ${{ matrix.service }}
           go install github.com/securego/gosec/v2/cmd/gosec@latest
-          gosec -fmt=json -out=../gosec-${{ matrix.service }}.json ./... || true
+          gosec -fmt=json -out=../gosec-${{ matrix.service }}.json ./...
 
       - name: go vet
-        continue-on-error: true
         run: |
           cd ${{ matrix.service }}
-          go vet ./... 2>&1 | tee ../govet-${{ matrix.service }}.txt || true
+          go vet ./... 2>&1 | tee ../govet-${{ matrix.service }}.txt
 
       - name: Generate Static Analysis Summary
         if: success() || failure()
@@ -297,7 +298,12 @@ jobs:
         if: success() || failure()
         with:
           name: static-analysis-report-${{ matrix.service }}
-          path: reports/static-analysis-${{ matrix.service }}.md
+          path: |
+            reports/static-analysis-${{ matrix.service }}.md
+            golangci-lint-${{ matrix.service }}.json
+            staticcheck-${{ matrix.service }}.json
+            gosec-${{ matrix.service }}.json
+            govet-${{ matrix.service }}.txt
 
   docker-compose-security:
     name: Docker Compose Security Analysis
@@ -324,7 +330,7 @@ jobs:
         continue-on-error: true
 
   security-summary:
-    name: 📊 Comprehensive Security Report
+    name: Comprehensive Security Report
     runs-on: ubuntu-latest
     needs:
       [
@@ -344,9 +350,9 @@ jobs:
         with:
           path: artifacts
 
-      - name: Generate Comprehensive Security Report
+      - name: Generate Security Report
         run: |
-          echo "# 🔒 PrediGroweeV2 Backend - Comprehensive Security Report" >> $GITHUB_STEP_SUMMARY
+          echo "# PrediGroweeV2 Backend - Security Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Scan Date:** $(date '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "**Repository:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
@@ -357,38 +363,72 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Trivy CVE Summary
-          echo "## 🐛 Container Vulnerability Scan (Trivy)" >> $GITHUB_STEP_SUMMARY
+          echo "## Container Vulnerability Scan (Trivy)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           for service in auth quiz stats images admin; do
             if [ -f "artifacts/trivy-report-$service/trivy-report-$service.json" ]; then
-              echo "### 📦 $service" >> $GITHUB_STEP_SUMMARY
+              echo "### $service" >> $GITHUB_STEP_SUMMARY
 
               CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' "artifacts/trivy-report-$service/trivy-report-$service.json" 2>/dev/null || echo "0")
               HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' "artifacts/trivy-report-$service/trivy-report-$service.json" 2>/dev/null || echo "0")
+              MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length' "artifacts/trivy-report-$service/trivy-report-$service.json" 2>/dev/null || echo "0")
+              LOW=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="LOW")] | length' "artifacts/trivy-report-$service/trivy-report-$service.json" 2>/dev/null || echo "0")
               SECRETS=$(jq '[.Results[]?.Secrets[]?] | length' "artifacts/trivy-report-$service/trivy-report-$service.json" 2>/dev/null || echo "0")
 
-              if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
-                echo "❌ **Issues Found:**" >> $GITHUB_STEP_SUMMARY
-                echo "- 🔴 CRITICAL: $CRITICAL" >> $GITHUB_STEP_SUMMARY
-                echo "- 🟠 HIGH: $HIGH" >> $GITHUB_STEP_SUMMARY
-
-                # List critical CVEs
-                if [ "$CRITICAL" -gt 0 ]; then
-                  echo "" >> $GITHUB_STEP_SUMMARY
-                  echo "<details><summary>🔴 Critical Vulnerabilities</summary>" >> $GITHUB_STEP_SUMMARY
-                  echo "" >> $GITHUB_STEP_SUMMARY
-                  echo '```' >> $GITHUB_STEP_SUMMARY
-                  jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL") | "CVE: \(.VulnerabilityID)\nPackage: \(.PkgName) \(.InstalledVersion)\nFixed: \(.FixedVersion // "N/A")\nTitle: \(.Title)\n---"' "artifacts/trivy-report-$service/trivy-report-$service.json" 2>/dev/null | head -100 >> $GITHUB_STEP_SUMMARY
-                  echo '```' >> $GITHUB_STEP_SUMMARY
-                  echo "</details>" >> $GITHUB_STEP_SUMMARY
-                fi
-              else
-                echo "✅ No CRITICAL/HIGH vulnerabilities found" >> $GITHUB_STEP_SUMMARY
-              fi
+              echo "**Vulnerabilities Found:**" >> $GITHUB_STEP_SUMMARY
+              echo "- CRITICAL: $CRITICAL" >> $GITHUB_STEP_SUMMARY
+              echo "- HIGH: $HIGH" >> $GITHUB_STEP_SUMMARY
+              echo "- MEDIUM: $MEDIUM" >> $GITHUB_STEP_SUMMARY
+              echo "- LOW: $LOW" >> $GITHUB_STEP_SUMMARY
 
               if [ "$SECRETS" -gt 0 ]; then
-                echo "- 🔐 Secrets Detected: $SECRETS" >> $GITHUB_STEP_SUMMARY
+                echo "- Secrets Detected: $SECRETS" >> $GITHUB_STEP_SUMMARY
               fi
+
+              # List critical CVEs with details
+              if [ "$CRITICAL" -gt 0 ]; then
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "<details><summary>CRITICAL Vulnerabilities ($CRITICAL)</summary>" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL") | "CVE: \(.VulnerabilityID)\nPackage: \(.PkgName) \(.InstalledVersion)\nFixed: \(.FixedVersion // "N/A")\nTitle: \(.Title)\n---"' "artifacts/trivy-report-$service/trivy-report-$service.json" 2>/dev/null >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                echo "</details>" >> $GITHUB_STEP_SUMMARY
+              fi
+
+              # List high CVEs with details
+              if [ "$HIGH" -gt 0 ]; then
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "<details><summary>HIGH Vulnerabilities ($HIGH)</summary>" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH") | "CVE: \(.VulnerabilityID)\nPackage: \(.PkgName) \(.InstalledVersion)\nFixed: \(.FixedVersion // "N/A")\nTitle: \(.Title)\n---"' "artifacts/trivy-report-$service/trivy-report-$service.json" 2>/dev/null | head -200 >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                echo "</details>" >> $GITHUB_STEP_SUMMARY
+              fi
+
+              # List medium CVEs with details
+              if [ "$MEDIUM" -gt 0 ]; then
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "<details><summary>MEDIUM Vulnerabilities ($MEDIUM)</summary>" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity=="MEDIUM") | "CVE: \(.VulnerabilityID)\nPackage: \(.PkgName) \(.InstalledVersion)\nFixed: \(.FixedVersion // "N/A")\nTitle: \(.Title)\n---"' "artifacts/trivy-report-$service/trivy-report-$service.json" 2>/dev/null | head -200 >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                echo "</details>" >> $GITHUB_STEP_SUMMARY
+              fi
+
+              # List low CVEs (collapsed by default, just count)
+              if [ "$LOW" -gt 0 ]; then
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "<details><summary>LOW Vulnerabilities ($LOW)</summary>" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity=="LOW") | "CVE: \(.VulnerabilityID)\nPackage: \(.PkgName) \(.InstalledVersion)\nFixed: \(.FixedVersion // "N/A")\nTitle: \(.Title)\n---"' "artifacts/trivy-report-$service/trivy-report-$service.json" 2>/dev/null | head -100 >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                echo "</details>" >> $GITHUB_STEP_SUMMARY
+              fi
+
               echo "" >> $GITHUB_STEP_SUMMARY
             fi
           done
@@ -397,30 +437,77 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Static Analysis Summary
-          echo "## 🔍 Go Static Analysis Results" >> $GITHUB_STEP_SUMMARY
+          echo "## Go Static Analysis Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           for service in auth quiz stats images admin; do
             if [ -f "artifacts/static-analysis-report-$service/static-analysis-$service.md" ]; then
               echo "### $service" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
 
-              # Parse gosec issues
-              if grep -q "gosec" "artifacts/static-analysis-report-$service/static-analysis-$service.md"; then
-                GOSEC_ISSUES=$(jq '.Issues | length' "artifacts/static-analysis-report-$service/static-analysis-$service.md" 2>/dev/null | grep -o '[0-9]*' || echo "0")
-                if [ "$GOSEC_ISSUES" -gt 0 ]; then
-                  echo "⚠️  **gosec:** $GOSEC_ISSUES security issues" >> $GITHUB_STEP_SUMMARY
-                else
-                  echo "✅ **gosec:** No security issues" >> $GITHUB_STEP_SUMMARY
+              # Parse golangci-lint JSON if exists
+              if [ -f "artifacts/static-analysis-report-$service/golangci-lint-$service.json" ]; then
+                GOLANGCI_ISSUES=$(jq '.Issues | length' "artifacts/static-analysis-report-$service/golangci-lint-$service.json" 2>/dev/null || echo "0")
+                if [ "$GOLANGCI_ISSUES" -gt 0 ]; then
+                  echo "**golangci-lint:** $GOLANGCI_ISSUES issues" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "<details><summary>View golangci-lint Issues</summary>" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo '```' >> $GITHUB_STEP_SUMMARY
+                  jq -r '.Issues[] | "\(.Pos.Filename):\(.Pos.Line) - [\(.FromLinter)] \(.Text)"' "artifacts/static-analysis-report-$service/golangci-lint-$service.json" 2>/dev/null | head -100 >> $GITHUB_STEP_SUMMARY
+                  echo '```' >> $GITHUB_STEP_SUMMARY
+                  echo "</details>" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
                 fi
               fi
 
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "<details><summary>📋 View Full Report</summary>" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-              cat "artifacts/static-analysis-report-$service/static-analysis-$service.md" | head -200 >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-              echo "</details>" >> $GITHUB_STEP_SUMMARY
+              # Parse staticcheck JSON if exists
+              if [ -f "artifacts/static-analysis-report-$service/staticcheck-$service.json" ]; then
+                STATICCHECK_ISSUES=$(jq '. | length' "artifacts/static-analysis-report-$service/staticcheck-$service.json" 2>/dev/null || echo "0")
+                if [ "$STATICCHECK_ISSUES" -gt 0 ]; then
+                  echo "**staticcheck:** $STATICCHECK_ISSUES issues" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "<details><summary>View staticcheck Issues</summary>" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo '```' >> $GITHUB_STEP_SUMMARY
+                  jq -r '.[] | "\(.location.file):\(.location.line) - \(.message)"' "artifacts/static-analysis-report-$service/staticcheck-$service.json" 2>/dev/null | head -100 >> $GITHUB_STEP_SUMMARY
+                  echo '```' >> $GITHUB_STEP_SUMMARY
+                  echo "</details>" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+
+              # Parse gosec JSON if exists
+              if [ -f "artifacts/static-analysis-report-$service/gosec-$service.json" ]; then
+                GOSEC_ISSUES=$(jq '.Issues | length' "artifacts/static-analysis-report-$service/gosec-$service.json" 2>/dev/null || echo "0")
+                if [ "$GOSEC_ISSUES" -gt 0 ]; then
+                  echo "**gosec (Security):** $GOSEC_ISSUES issues" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "<details><summary>View gosec Security Issues</summary>" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo '```' >> $GITHUB_STEP_SUMMARY
+                  jq -r '.Issues[] | "\(.file):\(.line) - [\(.severity)] \(.details)"' "artifacts/static-analysis-report-$service/gosec-$service.json" 2>/dev/null | head -100 >> $GITHUB_STEP_SUMMARY
+                  echo '```' >> $GITHUB_STEP_SUMMARY
+                  echo "</details>" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+
+              # Parse go vet output if exists
+              if [ -f "artifacts/static-analysis-report-$service/govet-$service.txt" ]; then
+                GOVET_LINES=$(wc -l < "artifacts/static-analysis-report-$service/govet-$service.txt" 2>/dev/null || echo "0")
+                if [ "$GOVET_LINES" -gt 0 ]; then
+                  echo "**go vet:** Issues found" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "<details><summary>View go vet Issues</summary>" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo '```' >> $GITHUB_STEP_SUMMARY
+                  cat "artifacts/static-analysis-report-$service/govet-$service.txt" | head -100 >> $GITHUB_STEP_SUMMARY
+                  echo '```' >> $GITHUB_STEP_SUMMARY
+                  echo "</details>" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+
               echo "" >> $GITHUB_STEP_SUMMARY
             fi
           done
@@ -429,21 +516,21 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Summary Statistics
-          echo "## 📈 Summary Statistics" >> $GITHUB_STEP_SUMMARY
+          echo "## Summary Statistics" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Scan Type | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Dockerfile Best Practices (Hadolint) | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Dockerfile Security (Dockle) | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
-          echo "| Container CVE Scan (Trivy) | ✅ Completed (5 services) |" >> $GITHUB_STEP_SUMMARY
-          echo "| SBOM Generation (Syft) | ✅ Completed (5 services) |" >> $GITHUB_STEP_SUMMARY
-          echo "| SBOM Vulnerability Scan (Grype) | ✅ Completed (5 services) |" >> $GITHUB_STEP_SUMMARY
-          echo "| Go Dependencies (govulncheck) | ✅ Completed (5 services) |" >> $GITHUB_STEP_SUMMARY
-          echo "| Go Static Analysis | ✅ Completed (5 services) |" >> $GITHUB_STEP_SUMMARY
-          echo "| Docker Compose Security | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dockerfile Best Practices (Hadolint) | Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dockerfile Security (Dockle) | Completed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Container CVE Scan (Trivy) | Completed (5 services) |" >> $GITHUB_STEP_SUMMARY
+          echo "| SBOM Generation (Syft) | Completed (5 services) |" >> $GITHUB_STEP_SUMMARY
+          echo "| SBOM Vulnerability Scan (Grype) | Completed (5 services) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Go Dependencies (govulncheck) | Completed (5 services) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Go Static Analysis | Completed (5 services) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Compose Security | Completed |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📁 **Detailed reports available in workflow artifacts**" >> $GITHUB_STEP_SUMMARY
+          echo "**Detailed reports available in workflow artifacts**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "💡 **Tip:** Download artifacts to view full JSON/Markdown reports" >> $GITHUB_STEP_SUMMARY
+          echo "Tip: Download artifacts to view full JSON/Markdown reports" >> $GITHUB_STEP_SUMMARY
