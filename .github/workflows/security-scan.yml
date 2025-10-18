@@ -36,8 +36,7 @@ jobs:
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: ./${{ matrix.service }}/Dockerfile
-          # Nie blokuj builda na warnings - tylko raportuj
-          no-fail: true
+          # Fail na warnings - pokazuj realny stan
 
   dockerfile-lint:
     name: Dockle - Dockerfile Security
@@ -58,9 +57,8 @@ jobs:
         uses: erzz/dockle-action@v1
         with:
           image: ${{ matrix.service }}:latest
-          exit-code: 0
+          exit-code: 1
           failure-threshold: WARN
-        continue-on-error: true
 
   trivy-scan:
     name: Trivy CVE Scan
@@ -150,20 +148,13 @@ jobs:
       - name: Scan SBOM with Grype
         uses: anchore/scan-action@v3
         id: grype
-        continue-on-error: true
         with:
           sbom: sbom-${{ matrix.service }}.spdx.json
-          fail-build: false
+          fail-build: true
           severity-cutoff: high
           output-format: sarif
 
-      - name: Check Grype results and fail if needed
-        if: steps.grype.outputs.vulnerabilities-found == 'true'
-        run: |
-          echo "::error::Grype found HIGH or CRITICAL vulnerabilities in ${{ matrix.service }}"
-          exit 1
-
-      - name: Upload Grype SARIF to GitHub Security tab
+      - name: Upload Grype SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         if: success() || failure()
         with:
