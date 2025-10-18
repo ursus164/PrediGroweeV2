@@ -9,13 +9,15 @@ echo "Running pre-commit security checks (full repository scan)..."
 
 # 1. Sprawdzenie czy nie commitujemy sekretów - CAŁE REPO
 echo "Checking for secrets in all files..."
-if grep -rI "password.*=.*['\"].*['\"]" . --exclude-dir=.git --exclude-dir=node_modules 2>/dev/null | grep -v "POSTGRES_PASSWORD"; then
+# Pattern: password = "hardcoded_value" (with quotes) - exclude env var reads
+if grep -rI "password.*=.*['\"].*['\"]" . --exclude-dir=.git --exclude-dir=node_modules 2>/dev/null | grep -v "POSTGRES_PASSWORD" | grep -v "os.Getenv" | grep -v "process.env"; then
     echo "❌ ERROR: Possible hardcoded password detected!"
     echo "Please remove hardcoded secrets before committing."
     exit 1
 fi
 
-if grep -rI "api[_-]?key.*=.*['\"].*['\"]" . --exclude-dir=.git --exclude-dir=node_modules 2>/dev/null; then
+# Pattern: api_key = "hardcoded_value" (with quotes) - exclude env var reads
+if grep -rI "api[_-]?key.*=.*['\"].*['\"]" . --exclude-dir=.git --exclude-dir=node_modules 2>/dev/null | grep -v "os.Getenv" | grep -v "process.env"; then
     echo "❌ ERROR: Possible hardcoded API key detected!"
     exit 1
 fi
@@ -186,7 +188,7 @@ go fmt ./... > /dev/null 2>&1
 # 7. Sprawdzenie package.json/package-lock.json - ZAWSZE
 if [ -f "../PrediGroweeV2-UI/package.json" ]; then
     echo "Checking frontend (PrediGroweeV2-UI)..."
-    
+
     cd ../PrediGroweeV2-UI
 
     # npm audit
@@ -201,7 +203,7 @@ if [ -f "../PrediGroweeV2-UI/package.json" ]; then
             echo "    Run: prettier --write <files>"
         }
     fi
-    
+
     cd ../PrediGroweeV2
 fi
 
