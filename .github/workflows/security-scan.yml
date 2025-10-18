@@ -149,7 +149,13 @@ jobs:
         with:
           name: sbom-${{ matrix.service }}
 
-      - name: Scan SBOM with Grype
+      - name: Scan SBOM with Grype (Table for logs)
+        continue-on-error: true
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+          grype sbom:sbom-${{ matrix.service }}.spdx.json -o table --fail-on medium
+
+      - name: Scan SBOM with Grype (SARIF for Security tab)
         uses: anchore/scan-action@v3
         id: grype
         with:
