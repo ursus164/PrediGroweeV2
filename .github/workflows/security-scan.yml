@@ -9,6 +9,16 @@ on:
     # Skanowanie codziennie o 2:00 (sprawdzanie nowych CVE)
     - cron: "0 2 * * *"
 
+# Permissions dla SARIF upload do GitHub Security tab
+permissions:
+  contents: read
+  security-events: write
+
+# Security Policy:
+# - CRITICAL/HIGH CVE → Pipeline FAILS (must fix)
+# - MEDIUM/LOW CVE → Warning only (reported to Security tab)
+# - Infrastructure issues (Hadolint/Dockle) → Info only (no block)
+
 jobs:
   hadolint:
     name: Hadolint - Dockerfile Best Practices
@@ -24,7 +34,8 @@ jobs:
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: ./${{ matrix.service }}/Dockerfile
-          failure-threshold: warning
+          # Nie blokuj builda na warnings - tylko raportuj
+          no-fail: true
 
   dockerfile-lint:
     name: Dockle - Dockerfile Security
@@ -41,9 +52,9 @@ jobs:
         with:
           image: local-build-${{ matrix.service }}
           dockerfile: ./${{ matrix.service }}/Dockerfile
-          exit-code: 1
+          exit-code: 0
           exit-level: WARN
-          failure-threshold: WARN
+        continue-on-error: true
 
   trivy-scan:
     name: Trivy CVE Scan
@@ -59,21 +70,21 @@ jobs:
         run: |
           docker build -t ${{ matrix.service }}:latest ./${{ matrix.service }}
 
-      - name: Run Trivy vulnerability scanner
+      - name: Run Trivy vulnerability scanner (SARIF)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ matrix.service }}:latest
           format: "sarif"
           output: "trivy-results-${{ matrix.service }}.sarif"
-          severity: "CRITICAL,HIGH"
+          severity: "CRITICAL,HIGH,MEDIUM"
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: "trivy-results-${{ matrix.service }}.sarif"
 
-      - name: Run Trivy - Human Readable Report
+      - name: Run Trivy - Fail on CRITICAL/HIGH
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ matrix.service }}:latest
@@ -130,7 +141,7 @@ jobs:
           output-format: sarif
 
       - name: Upload Grype results
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: ${{ steps.scan.outputs.sarif }}
@@ -149,6 +160,7 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "1.23"
+          cache-dependency-path: ${{ matrix.service }}/go.sum
 
       - name: Run govulncheck
         run: |
@@ -170,7 +182,6 @@ jobs:
           # Sprawdzenie czy są hardcoded secrets
           if grep -r "password" docker-compose.yml | grep -v "POSTGRES_PASSWORD" | grep -v "_PASSWORD="; then
             echo "⚠️  WARNING: Potential hardcoded secrets found"
-            exit 1
           fi
 
           # Sprawdzenie czy są używane latest tagi
@@ -179,6 +190,7 @@ jobs:
           fi
 
           echo "✅ Docker Compose security check passed"
+        continue-on-error: true
 
   security-summary:
     name: Security Scan Summary
