@@ -113,12 +113,8 @@ jobs:
           severity: "CRITICAL,HIGH,MEDIUM,LOW"
           scanners: "vuln,secret"
           timeout: 15m
-          ignore-unfixed: true
-          severity: "CRITICAL,HIGH"
-          scanners: "vuln,secret"
-          timeout: 15m
 
-      - name: Upload Trivy JSON report
+      - name: Upload Trivy results to GitHub Security tab
         uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
