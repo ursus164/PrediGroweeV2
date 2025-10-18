@@ -1,29 +1,28 @@
 #!/bin/bash
 
-# Git pre-commit hook - prosty security check
+# Git pre-commit hook - comprehensive security check
+# ZAWSZE SKANUJE CAŁE REPO (nie tylko zmienione pliki)
 # Kopiuj do: .git/hooks/pre-commit
 # lub użyj: ln -s ../../scripts/git-hooks/pre-commit .git/hooks/pre-commit
 
-echo "Running pre-commit security checks..."
+echo "Running pre-commit security checks (full repository scan)..."
 
-# Sprawdzenie czy są zmiany w plikach wrażliwych
-CHANGED_FILES=$(git diff --cached --name-only)
-
-# 1. Sprawdzenie czy nie commitujemy sekretów
-echo "Checking for secrets..."
-if echo "$CHANGED_FILES" | xargs grep -rI "password.*=.*['\"].*['\"]" 2>/dev/null | grep -v "POSTGRES_PASSWORD"; then
+# 1. Sprawdzenie czy nie commitujemy sekretów - CAŁE REPO
+echo "Checking for secrets in all files..."
+if grep -rI "password.*=.*['\"].*['\"]" . --exclude-dir=.git --exclude-dir=node_modules 2>/dev/null | grep -v "POSTGRES_PASSWORD"; then
     echo "❌ ERROR: Possible hardcoded password detected!"
     echo "Please remove hardcoded secrets before committing."
     exit 1
 fi
 
-if echo "$CHANGED_FILES" | xargs grep -rI "api[_-]?key.*=.*['\"].*['\"]" 2>/dev/null; then
+if grep -rI "api[_-]?key.*=.*['\"].*['\"]" . --exclude-dir=.git --exclude-dir=node_modules 2>/dev/null; then
     echo "❌ ERROR: Possible hardcoded API key detected!"
     exit 1
 fi
 
-# 2. Sprawdzenie czy nie commitujemy dużych plików
-echo "Checking file sizes..."
+# 2. Sprawdzenie czy nie commitujemy dużych plików - STAGED FILES
+echo "Checking staged file sizes..."
+CHANGED_FILES=$(git diff --cached --name-only)
 for file in $CHANGED_FILES; do
     if [ -f "$file" ]; then
         size=$(wc -c < "$file")
@@ -35,42 +34,40 @@ for file in $CHANGED_FILES; do
     fi
 done
 
-# 3. Sprawdzenie Dockerfile jeśli zmieniony
-if echo "$CHANGED_FILES" | grep -q "Dockerfile"; then
-    echo "Dockerfile changed, running checks..."
-
-    # Hadolint
-    if command -v hadolint &> /dev/null; then
-        echo "  Running hadolint..."
-        for dockerfile in $(echo "$CHANGED_FILES" | grep Dockerfile); do
-            if [ -f "$dockerfile" ]; then
-                hadolint_output=$(hadolint --failure-threshold style "$dockerfile" 2>&1)
-                if [ $? -ne 0 ]; then
-                    echo "❌ Hadolint found issues in $dockerfile:"
-                    echo "$hadolint_output"
-                    exit 1
-                fi
+# 3. Sprawdzenie Dockerfile - WSZYSTKIE
+echo "Checking all Dockerfiles..."
+if command -v hadolint &> /dev/null; then
+    echo "  Running hadolint on all Dockerfiles..."
+    for service in auth quiz stats images admin; do
+        if [ -f "$service/Dockerfile" ]; then
+            hadolint_output=$(hadolint --failure-threshold style "$service/Dockerfile" 2>&1)
+            if [ $? -ne 0 ]; then
+                echo "❌ Hadolint found issues in $service/Dockerfile:"
+                echo "$hadolint_output"
+                exit 1
             fi
-        done
-        echo "  ✓ Hadolint passed"
-    else
-        # Fallback - kilka prostych checkow
-        echo "Hadolint not installed, running basic checks..."
-
-        if grep -r "FROM.*:latest" */Dockerfile 2>/dev/null; then
-            echo "WARNING: Using :latest tag in Dockerfile is not recommended"
         fi
+    done
+    echo "  ✓ Hadolint passed"
+else
+    # Fallback - kilka prostych checkow
+    echo "Hadolint not installed, running basic checks..."
 
-        for dockerfile in $(echo "$CHANGED_FILES" | grep Dockerfile); do
-            if ! grep -q "^USER" "$dockerfile"; then
-                echo "WARNING: $dockerfile doesn't specify USER (might run as root)"
-            fi
-        done
+    if grep -r "FROM.*:latest" */Dockerfile 2>/dev/null; then
+        echo "WARNING: Using :latest tag in Dockerfile is not recommended"
     fi
+
+    for service in auth quiz stats images admin; do
+        if [ -f "$service/Dockerfile" ]; then
+            if ! grep -q "^USER" "$service/Dockerfile"; then
+                echo "WARNING: $service/Dockerfile doesn't specify USER (might run as root)"
+            fi
+        fi
+    done
 fi
 
-# 4. Sprawdzenie trailing whitespace
-echo "Checking for trailing whitespace..."
+# 4. Sprawdzenie trailing whitespace - STAGED FILES
+echo "Checking for trailing whitespace in staged files..."
 if git diff --cached --check; then
     echo "  ✓ No trailing whitespace"
 else
@@ -79,25 +76,24 @@ else
     exit 1
 fi
 
-# 5. Sprawdzenie merge conflicts
-echo "Checking for merge conflicts..."
-if echo "$CHANGED_FILES" | xargs grep -n "^<<<<<<< \|^=======$\|^>>>>>>> " 2>/dev/null; then
+# 5. Sprawdzenie merge conflicts - STAGED FILES
+echo "Checking for merge conflicts in staged files..."
+if git diff --cached | grep -n "^<<<<<<< \|^=======$\|^>>>>>>> " 2>/dev/null; then
     echo "❌ ERROR: Merge conflict markers found!"
     exit 1
 fi
 
-# 6. Sprawdzenie Go files
-if echo "$CHANGED_FILES" | grep -q "\.go$"; then
-    echo "Go files changed, running checks..."
+# 6. Sprawdzenie Go files - WSZYSTKIE SERWISY
+echo "Checking all Go services..."
 
-    # Go fmt
-    echo "  Running go fmt..."
-    go fmt ./... > /dev/null 2>&1
+# Go fmt
+echo "  Running go fmt on all services..."
+go fmt ./... > /dev/null 2>&1
 
-    # Go vet
-    echo "  Running go vet..."
+    # Go vet - SCAN ALL SERVICES (not just changed)
+    echo "  Running go vet on all services..."
     for service in auth quiz stats images admin; do
-        if echo "$CHANGED_FILES" | grep -q "^$service/"; then
+        if [ -d "$service" ]; then
             VET_OUTPUT=$(cd $service && go vet ./... 2>&1)
             if [ $? -ne 0 ]; then
                 echo "❌ go vet failed for $service:"
@@ -107,11 +103,11 @@ if echo "$CHANGED_FILES" | grep -q "\.go$"; then
         fi
     done
 
-    # golangci-lint (jeśli dostępne)
+    # golangci-lint - SCAN ALL SERVICES (not just changed)
     if command -v golangci-lint &> /dev/null; then
-        echo "  Running golangci-lint..."
+        echo "  Running golangci-lint on all services..."
         for service in auth quiz stats images admin; do
-            if echo "$CHANGED_FILES" | grep -q "^$service/"; then
+            if [ -d "$service" ]; then
                 LINT_OUTPUT=$(cd $service && golangci-lint run --timeout=5m 2>&1)
                 if [ $? -ne 0 ]; then
                     echo "❌ golangci-lint issues in $service:"
@@ -122,11 +118,11 @@ if echo "$CHANGED_FILES" | grep -q "\.go$"; then
         done
     fi
 
-    # staticcheck (jeśli dostępne)
+    # staticcheck - SCAN ALL SERVICES (not just changed)
     if command -v staticcheck &> /dev/null; then
-        echo "  Running staticcheck..."
+        echo "  Running staticcheck on all services..."
         for service in auth quiz stats images admin; do
-            if echo "$CHANGED_FILES" | grep -q "^$service/"; then
+            if [ -d "$service" ]; then
                 STATIC_OUTPUT=$(cd $service && staticcheck -checks all ./... 2>&1)
                 if [ $? -ne 0 ]; then
                     echo "❌ staticcheck issues in $service:"
@@ -137,11 +133,11 @@ if echo "$CHANGED_FILES" | grep -q "\.go$"; then
         done
     fi
 
-    # gosec (jeśli dostępne)
+    # gosec - SCAN ALL SERVICES (not just changed)
     if command -v gosec &> /dev/null; then
-        echo "  Running gosec (security scanner)..."
+        echo "  Running gosec (security scanner) on all services..."
         for service in auth quiz stats images admin; do
-            if echo "$CHANGED_FILES" | grep -q "^$service/"; then
+            if [ -d "$service" ]; then
                 GOSEC_OUTPUT=$(cd $service && gosec -quiet ./... 2>&1)
                 if [ $? -ne 0 ]; then
                     echo "❌ Security issues found by gosec in $service:"
@@ -152,10 +148,10 @@ if echo "$CHANGED_FILES" | grep -q "\.go$"; then
         done
     fi
 
-    # Go tests
-    echo "  Running go test..."
+    # Go tests - SCAN ALL SERVICES (not just changed)
+    echo "  Running go test on all services..."
     for service in auth quiz stats images admin; do
-        if echo "$CHANGED_FILES" | grep -q "^$service/"; then
+        if [ -d "$service" ]; then
             echo "    Testing $service..."
             TEST_OUTPUT=$(cd $service && go test ./... -short -timeout=30s 2>&1)
             if [ $? -ne 0 ]; then
@@ -166,11 +162,11 @@ if echo "$CHANGED_FILES" | grep -q "\.go$"; then
         fi
     done
 
-    # govulncheck (jeśli dostępne)
+    # govulncheck - SCAN ALL SERVICES (not just changed)
     if command -v govulncheck &> /dev/null; then
-        echo "  Running govulncheck..."
+        echo "  Running govulncheck on all services..."
         for service in auth quiz stats images admin; do
-            if echo "$CHANGED_FILES" | grep -q "^$service/"; then
+            if [ -d "$service" ]; then
                 VULN_OUTPUT=$(cd $service && govulncheck ./... 2>&1)
                 VULN_EXIT=$?
                 if [ $VULN_EXIT -eq 3 ]; then
@@ -186,36 +182,35 @@ if echo "$CHANGED_FILES" | grep -q "\.go$"; then
             fi
         done
     fi
-fi
 
-# 7. Sprawdzenie package.json/package-lock.json
-if echo "$CHANGED_FILES" | grep -q "package.json\|package-lock.json"; then
-    echo "package.json changed, running checks..."
+# 7. Sprawdzenie package.json/package-lock.json - ZAWSZE
+if [ -f "../PrediGroweeV2-UI/package.json" ]; then
+    echo "Checking frontend (PrediGroweeV2-UI)..."
+    
+    cd ../PrediGroweeV2-UI
 
     # npm audit
     echo "  Running npm audit..."
-    npm audit --audit-level=high 2>&1 | head -20
+    npm audit --audit-level=high 2>&1 | head -20 || echo "  ⚠️  npm audit issues found"
 
-    # prettier (jeśli dostępne i są pliki JS/TS)
+    # prettier (jeśli dostępne)
     if command -v prettier &> /dev/null; then
-        if echo "$CHANGED_FILES" | grep -q "\.[jt]sx\?$"; then
-            echo "  Running prettier check..."
-            echo "$CHANGED_FILES" | grep "\.[jt]sx\?$" | xargs prettier --check || {
-                echo "⚠️  Prettier formatting issues found"
-                echo "    Run: prettier --write <files>"
-            }
-        fi
-    fi
-fi
-
-# 8. Sprawdzenie YAML files (GitHub Actions workflows)
-if echo "$CHANGED_FILES" | grep -q "\.ya\?ml$"; then
-    echo "YAML files changed, checking syntax..."
-    if command -v yamllint &> /dev/null; then
-        echo "$CHANGED_FILES" | grep "\.ya\?ml$" | xargs yamllint || {
-            echo "⚠️  YAML linting issues (non-blocking)"
+        echo "  Running prettier check..."
+        npx prettier --check "src/**/*.{ts,tsx,js,jsx}" 2>&1 | head -20 || {
+            echo "  ⚠️  Prettier formatting issues found"
+            echo "    Run: prettier --write <files>"
         }
     fi
+    
+    cd ../PrediGroweeV2
+fi
+
+# 8. Sprawdzenie YAML files - WSZYSTKIE
+echo "Checking all YAML files..."
+if command -v yamllint &> /dev/null; then
+    find . -name "*.yml" -o -name "*.yaml" | grep -v node_modules | grep -v .git | xargs yamllint 2>&1 | head -20 || {
+        echo "  ⚠️  YAML linting issues (non-blocking)"
+    }
 fi
 
 echo ""

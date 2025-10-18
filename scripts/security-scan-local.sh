@@ -1,13 +1,18 @@
 #!/bin/bash
 
 # Skrypt do lokalnego skanowania bezpieczeństwa przed pushem
+# ZAWSZE SKANUJE CAŁE REPO (wszystkie serwisy) - nie tylko zmienione pliki
 # Użycie: ./scripts/security-scan-local.sh
 
-set -e
+# Nie przerywamy na błędach - chcemy zobaczyć wszystkie wyniki
+# set -e
 
 echo "PrediGrowee Security Scan - local"
 echo "======================================"
 echo ""
+
+# Licznik błędów
+TOTAL_ERRORS=0
 
 # Kolory
 RED='\033[0;31m'
@@ -88,9 +93,9 @@ if [ $HADOLINT_AVAILABLE -eq 1 ]; then
     echo ""
 fi
 
-echo "Building Docker images..."
+echo ""
 
-# Budowanie wszystkich mikroserwisów
+# Budowanie wszystkich mikroserwisów - ZAWSZE WSZYSTKIE SERWISY
 SERVICES=("auth" "quiz" "stats" "images" "admin")
 for service in "${SERVICES[@]}"; do
     echo "Building $service..."
@@ -102,7 +107,10 @@ echo "Scanning Trivy (CVE + Secrets)..."
 for service in "${SERVICES[@]}"; do
     echo ""
     echo "--- $service ---"
-    trivy image --severity HIGH,CRITICAL --scanners vuln,secret --ignore-unfixed predigrowee-$service:local
+    if ! trivy image --severity HIGH,CRITICAL --scanners vuln,secret --ignore-unfixed predigrowee-$service:local; then
+        echo -e "${RED}⚠️  Trivy found vulnerabilities in $service${NC}"
+        TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+    fi
 done
 
 echo ""
@@ -119,7 +127,10 @@ mkdir -p ./security-reports/grype
 for service in "${SERVICES[@]}"; do
     echo ""
     echo "--- $service ---"
-    grype sbom:./security-reports/sbom/$service-sbom.json --fail-on medium
+    if ! grype sbom:./security-reports/sbom/$service-sbom.json --fail-on medium; then
+        echo -e "${RED}⚠️  Grype found vulnerabilities in $service${NC}"
+        TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+    fi
 done
 
 echo ""
@@ -129,7 +140,10 @@ for service in "${SERVICES[@]}"; do
     echo "--- $service ---"
     cd ./$service
     if command -v govulncheck &> /dev/null; then
-        govulncheck ./... || true
+        if ! govulncheck ./...; then
+            echo -e "${RED}⚠️  govulncheck found issues in $service${NC}"
+            TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+        fi
     else
         echo "⚠️  govulncheck not installed, skipping..."
     fi
@@ -138,6 +152,7 @@ done
 
 echo ""
 echo "Running Go Static Analysis..."
+# ZAWSZE SKANUJE WSZYSTKIE SERWISY (nie tylko zmienione)
 if [ $GO_AVAILABLE -eq 1 ]; then
     for service in "${SERVICES[@]}"; do
         echo ""
@@ -147,24 +162,36 @@ if [ $GO_AVAILABLE -eq 1 ]; then
         # golangci-lint
         if command -v golangci-lint &> /dev/null; then
             echo "  [1/4] golangci-lint..."
-            golangci-lint run --timeout=5m || echo "    ⚠️  Found issues"
+            if ! golangci-lint run --timeout=5m; then
+                echo -e "${RED}    ⚠️  golangci-lint found issues${NC}"
+                TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+            fi
         fi
         
         # staticcheck
         if command -v staticcheck &> /dev/null; then
             echo "  [2/4] staticcheck..."
-            staticcheck -checks all ./... || echo "    ⚠️  Found issues"
+            if ! staticcheck -checks all ./...; then
+                echo -e "${RED}    ⚠️  staticcheck found issues${NC}"
+                TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+            fi
         fi
         
         # gosec
         if command -v gosec &> /dev/null; then
             echo "  [3/4] gosec (security)..."
-            gosec -fmt=golint -quiet ./... || echo "    ⚠️  Security issues found"
+            if ! gosec -fmt=golint -quiet ./...; then
+                echo -e "${RED}    ⚠️  gosec found security issues${NC}"
+                TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+            fi
         fi
         
         # go vet
         echo "  [4/4] go vet..."
-        go vet ./... || echo "    ⚠️  Found issues"
+        if ! go vet ./...; then
+            echo -e "${RED}    ⚠️  go vet found issues${NC}"
+            TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+        fi
         
         cd ..
     done
@@ -173,7 +200,17 @@ else
 fi
 
 echo ""
-echo -e "${GREEN}✅ Scan has been finished!${NC}"
-echo ""
-echo "Reports have been saved in: ./security-reports/"
-echo ""
+if [ $TOTAL_ERRORS -eq 0 ]; then
+    echo -e "${GREEN}✅ All scans passed!${NC}"
+    echo ""
+    echo "Reports have been saved in: ./security-reports/"
+    echo ""
+    exit 0
+else
+    echo -e "${RED}❌ Scan completed with $TOTAL_ERRORS errors/warnings${NC}"
+    echo ""
+    echo "Reports have been saved in: ./security-reports/"
+    echo ""
+    echo "Fix issues before pushing to repository!"
+    exit 1
+fi
