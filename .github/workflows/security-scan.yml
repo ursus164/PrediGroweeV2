@@ -78,18 +78,28 @@ jobs:
         run: |
           docker build -t ${{ matrix.service }}:latest ./${{ matrix.service }}
 
-      - name: Run Trivy vulnerability scanner
+      - name: Run Trivy vulnerability scanner (SARIF for Security tab)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ matrix.service }}:latest
           format: "sarif"
           output: "trivy-results-${{ matrix.service }}.sarif"
+          exit-code: 0
+          ignore-unfixed: true
+          severity: "CRITICAL,HIGH"
+          timeout: 15m
+
+      - name: Run Trivy vulnerability scanner (Table for logs)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ matrix.service }}:latest
+          format: "table"
           exit-code: 1
           ignore-unfixed: true
           severity: "CRITICAL,HIGH"
           timeout: 15m
 
-      - name: Upload Trivy SARIF to GitHub Security
+      - name: Upload Trivy results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
         if: success() || failure()
         with:
