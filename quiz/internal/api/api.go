@@ -107,6 +107,12 @@ func (a *ApiServer) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /quiz/options/{id}", middleware.InternalAuth(optionsHandler.UpdateOption, a.logger, apiKey))
 	mux.HandleFunc("DELETE /quiz/options/{id}", middleware.InternalAuth(optionsHandler.DeleteOption, a.logger, apiKey))
 
+	// health check
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
 	// groups
 	groupHandler := handlers.NewGroupHandler(a.storage, a.logger)
 	mux.HandleFunc("POST /quiz/groups", middleware.InternalAuth(groupHandler.CreateGroup, a.logger, apiKey))

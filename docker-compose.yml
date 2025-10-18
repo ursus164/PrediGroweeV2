@@ -12,6 +12,9 @@ services:
       - quiz
       - stats
       - admin
+    networks:
+      - frontend_network
+      - backend_network
 
   # Postgres for Auth
   auth_db:
@@ -25,6 +28,13 @@ services:
       - ./database-init/auth:/docker-entrypoint-initdb.d
     ports:
       - "5433:5432"  # Different port for local development
+    networks:
+      - db_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Postgres for Quiz
   quiz_db:
@@ -38,6 +48,13 @@ services:
       - ./database-init/quiz:/docker-entrypoint-initdb.d
     ports:
       - "5435:5432"  # Different port for local development
+    networks:
+      - db_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quiz_user -d quiz_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Postgres for Stats
   stats_db:
@@ -51,6 +68,13 @@ services:
       - ./database-init/stats:/docker-entrypoint-initdb.d
     ports:
       - "5436:5432"  # Different port for local development
+    networks:
+      - db_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stats_user -d stats_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   images_db:
     image: postgres:13
@@ -63,6 +87,13 @@ services:
       - ./database-init/images:/docker-entrypoint-initdb.d
     ports:
       - "5438:5432"  # Different port for local development
+    networks:
+      - db_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U images_user -d images_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Auth microservice
   auth:
@@ -82,6 +113,9 @@ services:
       - INTERNAL_API_KEY=api_key
     depends_on:
       - auth_db
+    networks:
+      - backend_network
+      - db_network
 
   # Images microservice
   images:
@@ -97,12 +131,14 @@ services:
       - DB_USER=images_user
       - DB_PASSWORD=images_password
       - DB_NAME=images_db
-      - ENV=local
     volumes:
       - ./images_data:/app/images
     depends_on:
       - auth
       - images_db
+    networks:
+      - backend_network
+      - db_network
 
   # Quiz microservice
   quiz:
@@ -122,6 +158,9 @@ services:
     depends_on:
       - quiz_db
       - auth
+    networks:
+      - backend_network
+      - db_network
 
   stats:
     build:
@@ -140,6 +179,9 @@ services:
     depends_on:
         - stats_db
         - auth
+    networks:
+      - backend_network
+      - db_network
   admin:
     build:
       context: ./admin
@@ -151,6 +193,8 @@ services:
       - INTERNAL_API_KEY=api_key
     depends_on:
       - auth
+    networks:
+      - backend_network
   frontend:
     build:
       context: ../PrediGroweeV2-UI
@@ -175,6 +219,9 @@ services:
       - ./content:/app/content
     expose:
       - "3000"
+    networks:
+      - frontend_network
+      - backend_network
 
 volumes:
   auth_db_data:
@@ -183,3 +230,11 @@ volumes:
   images_db_data:
   images_data:
   content:
+
+networks:
+  frontend_network:
+    driver: bridge
+  backend_network:
+    driver: bridge
+  db_network:
+    driver: bridge

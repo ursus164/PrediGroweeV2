@@ -72,6 +72,11 @@ func (a *ApiServer) Run() {
 }
 
 func (a *ApiServer) registerRoutes(mux *http.ServeMux) {
+	// health check
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
 
 	// users
 	usersHandler := handlers.NewUsersHandler(a.logger, a.authClient, a.statsClient)
