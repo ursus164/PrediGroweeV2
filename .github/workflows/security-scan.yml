@@ -233,18 +233,13 @@ jobs:
 
       - name: golangci-lint
         id: golangci-lint
-        uses: golangci/golangci-lint-action@v6
         continue-on-error: true
-        with:
-          version: latest
-          working-directory: ${{ matrix.service }}
-          args: --timeout=5m --out-format=json --issues-exit-code=1
-
-      - name: Save golangci-lint output
-        if: always()
         run: |
           cd ${{ matrix.service }}
-          /home/runner/golangci-lint-*/golangci-lint run --timeout=5m --out-format=json > ../golangci-lint-${{ matrix.service }}.json || true
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.64.8
+          $(go env GOPATH)/bin/golangci-lint run --timeout=5m --out-format=json > ../golangci-lint-${{ matrix.service }}.json 2>&1 || true
+          # Also generate readable output for logs
+          $(go env GOPATH)/bin/golangci-lint run --timeout=5m 2>&1 || true
 
       - name: staticcheck
         id: staticcheck
@@ -459,10 +454,30 @@ jobs:
           # Static Analysis Summary
           echo "## Go Static Analysis Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Debug: list all artifacts
+          echo "Debug - Available artifacts:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ls -la artifacts/ >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
           for service in auth quiz stats images admin; do
-            if [ -f "artifacts/static-analysis-report-$service/static-analysis-$service.md" ]; then
-              echo "### $service" >> $GITHUB_STEP_SUMMARY
+            echo "### $service" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Debug: list service artifact contents
+            if [ -d "artifacts/static-analysis-report-$service" ]; then
+              echo "Debug - Files in static-analysis-report-$service:" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              ls -la "artifacts/static-analysis-report-$service/" >> $GITHUB_STEP_SUMMARY || true
+              echo '```' >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "No static analysis artifact found for $service" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              continue
+            fi
 
               # Parse golangci-lint JSON if exists
               if [ -f "artifacts/static-analysis-report-$service/golangci-lint-$service.json" ]; then
