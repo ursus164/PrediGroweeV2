@@ -24,6 +24,7 @@ jobs:
     name: Hadolint - Dockerfile Best Practices
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         service: [auth, quiz, stats, images, admin]
     steps:
@@ -41,6 +42,7 @@ jobs:
     name: Dockle - Dockerfile Security
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         service: [auth, quiz, stats, images, admin]
     steps:
@@ -64,6 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
         service: [auth, quiz, stats, images, admin]
     steps:
@@ -95,6 +98,7 @@ jobs:
     name: Generate SBOM (Syft)
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         service: [auth, quiz, stats, images, admin]
     steps:
@@ -123,6 +127,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: sbom-generation
     strategy:
+      fail-fast: false
       matrix:
         service: [auth, quiz, stats, images, admin]
     steps:
@@ -158,6 +163,7 @@ jobs:
     name: Go Dependencies Security Check
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         service: [auth, quiz, stats, images, admin]
     steps:
