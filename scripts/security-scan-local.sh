@@ -59,7 +59,7 @@ if [ $HADOLINT_AVAILABLE -eq 1 ]; then
     for service in auth quiz stats images admin; do
         if [ -f "./$service/Dockerfile" ]; then
             echo "  Checking $service/Dockerfile..."
-            if ! hadolint "./$service/Dockerfile"; then
+            if ! hadolint --failure-threshold style "./$service/Dockerfile"; then
                 echo -e "${RED}❌ Hadolint found problems in $service/Dockerfile${NC}"
                 HADOLINT_ERRORS=1
             fi
@@ -84,11 +84,11 @@ for service in "${SERVICES[@]}"; do
 done
 
 echo ""
-echo "Scanning Trivy (CVE)..."
+echo "Scanning Trivy (CVE + Secrets)..."
 for service in "${SERVICES[@]}"; do
     echo ""
     echo "--- $service ---"
-    trivy image --severity HIGH,CRITICAL predigrowee-$service:local
+    trivy image --severity HIGH,CRITICAL --scanners vuln,secret --ignore-unfixed predigrowee-$service:local
 done
 
 echo ""
@@ -105,7 +105,7 @@ mkdir -p ./security-reports/grype
 for service in "${SERVICES[@]}"; do
     echo ""
     echo "--- $service ---"
-    grype sbom:./security-reports/sbom/$service-sbom.json --fail-on high
+    grype sbom:./security-reports/sbom/$service-sbom.json --fail-on medium
 done
 
 echo ""

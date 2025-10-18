@@ -36,7 +36,8 @@ jobs:
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: ./${{ matrix.service }}/Dockerfile
-          # Fail na warnings - pokazuj realny stan
+          failure-threshold: style
+          # Najbardziej strict: failuje na error > warning > info > style
 
   dockerfile-lint:
     name: Dockle - Dockerfile Security
@@ -58,7 +59,8 @@ jobs:
         with:
           image: ${{ matrix.service }}:latest
           exit-code: 1
-          failure-threshold: WARN
+          failure-threshold: INFO
+          # Najbardziej strict: failuje na FATAL > WARN > INFO
 
   trivy-scan:
     name: Trivy CVE Scan
@@ -85,6 +87,7 @@ jobs:
           exit-code: 0
           ignore-unfixed: true
           severity: "CRITICAL,HIGH"
+          scanners: "vuln,secret"
           timeout: 15m
 
       - name: Run Trivy vulnerability scanner (Table for logs)
@@ -95,6 +98,7 @@ jobs:
           exit-code: 1
           ignore-unfixed: true
           severity: "CRITICAL,HIGH"
+          scanners: "vuln,secret"
           timeout: 15m
 
       - name: Upload Trivy results to GitHub Security tab
@@ -151,7 +155,8 @@ jobs:
         with:
           sbom: sbom-${{ matrix.service }}.spdx.json
           fail-build: true
-          severity-cutoff: high
+          severity-cutoff: medium
+          # Strict: failuje na CRITICAL > HIGH > MEDIUM
           output-format: sarif
 
       - name: Upload Grype SARIF to GitHub Security

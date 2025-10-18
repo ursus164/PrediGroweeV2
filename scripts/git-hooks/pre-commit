@@ -44,7 +44,7 @@ if echo "$CHANGED_FILES" | grep -q "Dockerfile"; then
         echo "  Running hadolint..."
         for dockerfile in $(echo "$CHANGED_FILES" | grep Dockerfile); do
             if [ -f "$dockerfile" ]; then
-                hadolint_output=$(hadolint "$dockerfile" 2>&1)
+                hadolint_output=$(hadolint --failure-threshold style "$dockerfile" 2>&1)
                 if [ $? -ne 0 ]; then
                     echo "❌ Hadolint found issues in $dockerfile:"
                     echo "$hadolint_output"
@@ -142,11 +142,16 @@ if echo "$CHANGED_FILES" | grep -q "\.go$"; then
         for service in auth quiz stats images admin; do
             if echo "$CHANGED_FILES" | grep -q "^$service/"; then
                 VULN_OUTPUT=$(cd $service && govulncheck ./... 2>&1)
-                if [ $? -ne 0 ]; then
-                    echo "⚠️  Vulnerabilities found in $service:"
-                    echo "$VULN_OUTPUT" | head -30
+                VULN_EXIT=$?
+                if [ $VULN_EXIT -eq 3 ]; then
+                    echo "❌ CRITICAL vulnerabilities found in $service:"
+                    echo "$VULN_OUTPUT"
                     echo ""
-                    echo "Run 'cd $service && govulncheck ./...' for full details"
+                    echo "This will FAIL in CI - fix before pushing!"
+                    exit 1
+                elif [ $VULN_EXIT -ne 0 ]; then
+                    echo "⚠️  govulncheck issues in $service (exit code: $VULN_EXIT):"
+                    echo "$VULN_OUTPUT" | head -30
                 fi
             fi
         done
