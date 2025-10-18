@@ -59,7 +59,7 @@ jobs:
         with:
           image: ${{ matrix.service }}:latest
           exit-code: 0
-          exit-level: WARN
+          failure-threshold: WARN
         continue-on-error: true
 
   trivy-scan:
