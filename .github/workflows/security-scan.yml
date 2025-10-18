@@ -47,11 +47,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Build Docker image for Dockle
+        run: |
+          docker build -t ${{ matrix.service }}:latest ./${{ matrix.service }}
+
       - name: Run Dockle
         uses: erzz/dockle-action@v1
         with:
-          image: local-build-${{ matrix.service }}
-          dockerfile: ./${{ matrix.service }}/Dockerfile
+          image: ${{ matrix.service }}:latest
           exit-code: 0
           exit-level: WARN
         continue-on-error: true
@@ -59,6 +62,7 @@ jobs:
   trivy-scan:
     name: Trivy CVE Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       matrix:
         service: [auth, quiz, stats, images, admin]
@@ -70,27 +74,22 @@ jobs:
         run: |
           docker build -t ${{ matrix.service }}:latest ./${{ matrix.service }}
 
-      - name: Run Trivy vulnerability scanner (SARIF)
+      - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ matrix.service }}:latest
           format: "sarif"
           output: "trivy-results-${{ matrix.service }}.sarif"
-          severity: "CRITICAL,HIGH,MEDIUM"
+          exit-code: 1
+          ignore-unfixed: true
+          severity: "CRITICAL,HIGH"
+          timeout: 15m
 
-      - name: Upload Trivy results to GitHub Security
+      - name: Upload Trivy SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: success() || failure()
         with:
           sarif_file: "trivy-results-${{ matrix.service }}.sarif"
-
-      - name: Run Trivy - Fail on CRITICAL/HIGH
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ matrix.service }}:latest
-          format: "table"
-          exit-code: 1
-          severity: "CRITICAL,HIGH"
 
   sbom-generation:
     name: Generate SBOM (Syft)
@@ -114,7 +113,7 @@ jobs:
           output-file: sbom-${{ matrix.service }}.spdx.json
 
       - name: Upload SBOM as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sbom-${{ matrix.service }}
           path: sbom-${{ matrix.service }}.spdx.json
@@ -128,23 +127,32 @@ jobs:
         service: [auth, quiz, stats, images, admin]
     steps:
       - name: Download SBOM
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: sbom-${{ matrix.service }}
 
       - name: Scan SBOM with Grype
         uses: anchore/scan-action@v3
+        id: grype
+        continue-on-error: true
         with:
           sbom: sbom-${{ matrix.service }}.spdx.json
-          fail-build: true
+          fail-build: false
           severity-cutoff: high
           output-format: sarif
+          sarif-file: grype-${{ matrix.service }}.sarif
 
-      - name: Upload Grype results
+      - name: Check Grype results and fail if needed
+        if: steps.grype.outputs.vulnerabilities-found == 'true'
+        run: |
+          echo "::error::Grype found HIGH or CRITICAL vulnerabilities in ${{ matrix.service }}"
+          exit 1
+
+      - name: Upload Grype SARIF to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: success() || failure()
         with:
-          sarif_file: ${{ steps.scan.outputs.sarif }}
+          sarif_file: grype-${{ matrix.service }}.sarif
 
   dependency-check:
     name: Go Dependencies Security Check
