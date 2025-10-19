@@ -49,7 +49,7 @@ fi
 if command -v go &> /dev/null; then
     echo -e "${GREEN}✅ go${NC}"
     GO_AVAILABLE=1
-    
+
     check_tool govulncheck
     check_tool golangci-lint
     check_tool staticcheck
@@ -67,6 +67,69 @@ if [ $TOOLS_MISSING -eq 1 ]; then
     echo "  grype: https://github.com/anchore/grype#installation"
     echo "  hadolint (opcjonalny): https://github.com/hadolint/hadolint"
     exit 1
+fi
+
+echo ""
+
+# File Hygiene Checks
+echo -e "${BLUE}File Hygiene Checks...${NC}"
+
+# Check file sizes
+echo "  [1/3] Checking file sizes..."
+FILES_TOO_LARGE=0
+while IFS= read -r -d '' file; do
+    if [ -f "$file" ]; then
+        size=$(wc -c < "$file" 2>/dev/null || echo 0)
+        if [ $size -gt 1048576 ]; then  # 1MB
+            echo -e "${RED}    ⚠️  File too large: $file ($(($size / 1024))KB > 1MB)${NC}"
+            FILES_TOO_LARGE=1
+        fi
+    fi
+done < <(find . -type f -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.next/*" -not -path "./dist/*" -not -path "./build/*" -not -path "./security-reports/*" -not -path "./database-init/*" -print0)
+
+if [ $FILES_TOO_LARGE -eq 1 ]; then
+    echo -e "${RED}    ❌ Large files detected - consider using Git LFS${NC}"
+    TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+else
+    echo -e "${GREEN}    ✓ All files within size limit${NC}"
+fi
+
+# Check trailing whitespace
+echo "  [2/3] Checking trailing whitespace..."
+TRAILING_WS_FOUND=0
+while IFS= read -r -d '' file; do
+    if [ -f "$file" ]; then
+        if grep -q '[[:space:]]$' "$file" 2>/dev/null; then
+            echo -e "${RED}    Trailing whitespace: $file${NC}"
+            TRAILING_WS_FOUND=1
+        fi
+    fi
+done < <(find . -type f \( -name "*.go" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.yml" -o -name "*.yaml" -o -name "*.json" -o -name "*.md" \) -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.next/*" -not -path "./security-reports/*" -print0)
+
+if [ $TRAILING_WS_FOUND -eq 1 ]; then
+    echo -e "${RED}    ❌ Trailing whitespace found${NC}"
+    TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+else
+    echo -e "${GREEN}    ✓ No trailing whitespace${NC}"
+fi
+
+# Check merge conflict markers
+echo "  [3/3] Checking merge conflict markers..."
+MERGE_CONFLICTS_FOUND=0
+while IFS= read -r -d '' file; do
+    if [ -f "$file" ]; then
+        if grep -n "^<<<<<<< \|^=======$\|^>>>>>>> " "$file" 2>/dev/null; then
+            echo -e "${RED}    Merge conflict markers: $file${NC}"
+            MERGE_CONFLICTS_FOUND=1
+        fi
+    fi
+done < <(find . -type f \( -name "*.go" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.yml" -o -name "*.yaml" -o -name "*.json" -o -name "*.md" \) -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.next/*" -not -path "./security-reports/*" -print0)
+
+if [ $MERGE_CONFLICTS_FOUND -eq 1 ]; then
+    echo -e "${RED}    ❌ Merge conflict markers found${NC}"
+    TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+else
+    echo -e "${GREEN}    ✓ No merge conflict markers${NC}"
 fi
 
 echo ""
@@ -158,7 +221,7 @@ if [ $GO_AVAILABLE -eq 1 ]; then
         echo ""
         echo "=== $service ==="
         cd ./$service
-        
+
         # golangci-lint
         if command -v golangci-lint &> /dev/null; then
             echo "  [1/4] golangci-lint..."
@@ -167,7 +230,7 @@ if [ $GO_AVAILABLE -eq 1 ]; then
                 TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
             fi
         fi
-        
+
         # staticcheck
         if command -v staticcheck &> /dev/null; then
             echo "  [2/4] staticcheck..."
@@ -176,7 +239,7 @@ if [ $GO_AVAILABLE -eq 1 ]; then
                 TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
             fi
         fi
-        
+
         # gosec
         if command -v gosec &> /dev/null; then
             echo "  [3/4] gosec (security)..."
@@ -185,14 +248,14 @@ if [ $GO_AVAILABLE -eq 1 ]; then
                 TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
             fi
         fi
-        
+
         # go vet
         echo "  [4/4] go vet..."
         if ! go vet ./...; then
             echo -e "${RED}    ⚠️  go vet found issues${NC}"
             TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
         fi
-        
+
         cd ..
     done
 else
