@@ -78,8 +78,8 @@ else
     fi
 fi
 
-# 4a. golangci-lint - Meta-linter
-echo -e "\n${YELLOW}[4a/9] Instalacja golangci-lint (Go Meta-linter)...${NC}"
+# 4a. golangci-lint - Meta-linter (includes: govet, staticcheck, gosec, errcheck, and 40+ linters)
+echo -e "\n${YELLOW}[4a/6] Instalacja golangci-lint (Go Meta-linter)...${NC}"
 if command -v golangci-lint &> /dev/null; then
     echo -e "${GREEN}✓ golangci-lint już zainstalowany ($(golangci-lint --version | head -n1))${NC}"
 else
@@ -87,55 +87,14 @@ else
         echo "  Instaluję golangci-lint..."
         curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
         echo -e "${GREEN}✓ golangci-lint zainstalowany${NC}"
+        echo -e "${GREEN}  Includes: govet, staticcheck, gosec, errcheck, and 40+ other linters${NC}"
     else
         echo -e "${YELLOW}⚠️  Go nie jest zainstalowany - pomijam golangci-lint${NC}"
     fi
 fi
 
-# 4b. staticcheck - Advanced Go linter
-echo -e "\n${YELLOW}[4b/9] Instalacja staticcheck (Go Static Analyzer)...${NC}"
-if command -v staticcheck &> /dev/null; then
-    echo -e "${GREEN}✓ staticcheck już zainstalowany${NC}"
-else
-    if command -v go &> /dev/null; then
-        echo "  Instaluję staticcheck..."
-        go install honnef.co/go/tools/cmd/staticcheck@latest
-        echo -e "${GREEN}✓ staticcheck zainstalowany${NC}"
-    else
-        echo -e "${YELLOW}⚠️  Go nie jest zainstalowany - pomijam staticcheck${NC}"
-    fi
-fi
-
-# 4c. revive - Fast Go linter
-echo -e "\n${YELLOW}[4c/9] Instalacja revive (Go Linter)...${NC}"
-if command -v revive &> /dev/null; then
-    echo -e "${GREEN}✓ revive już zainstalowany${NC}"
-else
-    if command -v go &> /dev/null; then
-        echo "  Instaluję revive..."
-        go install github.com/mgechev/revive@latest
-        echo -e "${GREEN}✓ revive zainstalowany${NC}"
-    else
-        echo -e "${YELLOW}⚠️  Go nie jest zainstalowany - pomijam revive${NC}"
-    fi
-fi
-
-# 4d. gosec - Go Security Checker
-echo -e "\n${YELLOW}[4d/9] Instalacja gosec (Go Security Checker)...${NC}"
-if command -v gosec &> /dev/null; then
-    echo -e "${GREEN}✓ gosec już zainstalowany${NC}"
-else
-    if command -v go &> /dev/null; then
-        echo "  Instaluję gosec..."
-        go install github.com/securego/gosec/v2/cmd/gosec@latest
-        echo -e "${GREEN}✓ gosec zainstalowany${NC}"
-    else
-        echo -e "${YELLOW}⚠️  Go nie jest zainstalowany - pomijam gosec${NC}"
-    fi
-fi
-
 # 5. Hadolint - Dockerfile Linter
-echo -e "\n${YELLOW}[5/11] Instalacja Hadolint (Dockerfile Linter)...${NC}"
+echo -e "\n${YELLOW}[5/8] Instalacja Hadolint (Dockerfile Linter)...${NC}"
 if command -v hadolint &> /dev/null; then
     echo -e "${GREEN}✓ Hadolint już zainstalowany ($(hadolint --version))${NC}"
 else
@@ -148,7 +107,7 @@ else
 fi
 
 # 6. Dockle - Dockerfile Security Linter
-echo -e "\n${YELLOW}[6/11] Instalacja Dockle (Dockerfile Security Linter)...${NC}"
+echo -e "\n${YELLOW}[6/8] Instalacja Dockle (Dockerfile Security Linter)...${NC}"
 if command -v dockle &> /dev/null; then
     echo -e "${GREEN}✓ Dockle już zainstalowany ($(dockle --version))${NC}"
 else
@@ -161,7 +120,7 @@ else
 fi
 
 # 7. Instalacja Git Hooks
-echo -e "\n${YELLOW}[7/11] Instalacja Git Hooks...${NC}"
+echo -e "\n${YELLOW}[7/8] Instalacja Git Hooks...${NC}"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 REPO_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
@@ -190,23 +149,9 @@ else
 fi
 if command -v golangci-lint &> /dev/null; then
     echo "  • golangci-lint: $(golangci-lint --version 2>&1 | head -n1 | awk '{print $4}')"
+    echo "     (includes: govet, staticcheck, gosec, errcheck, and 40+ linters)"
 else
     echo "  • golangci-lint: ❌ (wymaga Go)"
-fi
-if command -v staticcheck &> /dev/null; then
-    echo "  • staticcheck:   ✓"
-else
-    echo "  • staticcheck:   ❌ (wymaga Go)"
-fi
-if command -v revive &> /dev/null; then
-    echo "  • revive:        ✓"
-else
-    echo "  • revive:        ❌ (wymaga Go)"
-fi
-if command -v gosec &> /dev/null; then
-    echo "  • gosec:         ✓"
-else
-    echo "  • gosec:         ❌ (wymaga Go)"
 fi
 if command -v dockle &> /dev/null; then
     echo "  • Dockle:        $(dockle --version 2>&1 | cut -d' ' -f2)"

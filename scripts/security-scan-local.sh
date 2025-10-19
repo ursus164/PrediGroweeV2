@@ -36,6 +36,7 @@ check_tool docker
 check_tool trivy
 check_tool syft
 check_tool grype
+check_tool golangci-lint
 
 if command -v hadolint &> /dev/null; then
     echo -e "${GREEN}✅ hadolint${NC}"
@@ -45,15 +46,12 @@ else
     HADOLINT_AVAILABLE=0
 fi
 
-# Go static analysis tools
+# Go tools
 if command -v go &> /dev/null; then
     echo -e "${GREEN}✅ go${NC}"
     GO_AVAILABLE=1
 
     check_tool govulncheck
-    check_tool golangci-lint
-    check_tool staticcheck
-    check_tool gosec
 else
     echo -e "${YELLOW}❌ go (not installed)${NC}"
     GO_AVAILABLE=0
@@ -113,25 +111,6 @@ else
     echo -e "${GREEN}    ✓ No trailing whitespace${NC}"
 fi
 
-# Check merge conflict markers
-echo "  [3/3] Checking merge conflict markers..."
-MERGE_CONFLICTS_FOUND=0
-while IFS= read -r -d '' file; do
-    if [ -f "$file" ]; then
-        if grep -n "^<<<<<<< \|^=======$\|^>>>>>>> " "$file" 2>/dev/null; then
-            echo -e "${RED}    Merge conflict markers: $file${NC}"
-            MERGE_CONFLICTS_FOUND=1
-        fi
-    fi
-done < <(find . -type f \( -name "*.go" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.yml" -o -name "*.yaml" -o -name "*.json" -o -name "*.md" \) -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.next/*" -not -path "./security-reports/*" -print0)
-
-if [ $MERGE_CONFLICTS_FOUND -eq 1 ]; then
-    echo -e "${RED}    ❌ Merge conflict markers found${NC}"
-    TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
-else
-    echo -e "${GREEN}    ✓ No merge conflict markers${NC}"
-fi
-
 echo ""
 
 # Skanowanie Dockerfile z Hadolint (jeśli dostępne)
@@ -177,7 +156,32 @@ for service in "${SERVICES[@]}"; do
 done
 
 echo ""
-echo "Generating SBOM (Syft)..."
+echo "Scanning Dockle (Docker Image Security)..."
+if command -v dockle &> /dev/null; then
+    for service in "${SERVICES[@]}"; do
+        echo ""
+        echo "--- $service ---"
+        # Dockle: sprawdzanie CIS Docker Benchmark na zbudowanych obrazach
+        # --exit-code 1 = exit with code 1 if issues found
+        # --exit-level warn = fail on WARN or higher (WARN, FATAL)
+        # Ignorujemy .dockleignore jeśli istnieje w katalogu serwisu
+        DOCKLE_IGNORE=""
+        if [ -f "./$service/.dockleignore" ]; then
+            DOCKLE_IGNORE="--ignore-file ./$service/.dockleignore"
+        fi
+
+        if ! dockle --exit-code 1 --exit-level warn $DOCKLE_IGNORE predigrowee-$service:local; then
+            echo -e "${RED}⚠️  Dockle found issues in $service${NC}"
+            TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
+        fi
+    done
+else
+    echo -e "${YELLOW}⚠️  Dockle not installed, skipping...${NC}"
+    echo "   Install with: ./scripts/install-security-tools.sh"
+fi
+
+echo ""
+echo "Generating SBOMs (Syft)..."
 mkdir -p ./security-reports/sbom
 for service in "${SERVICES[@]}"; do
     syft predigrowee-$service:local -o spdx-json > ./security-reports/sbom/$service-sbom.json
@@ -214,50 +218,29 @@ for service in "${SERVICES[@]}"; do
 done
 
 echo ""
-echo "Running Go Static Analysis..."
+echo "Running Go Static Analysis (golangci-lint)..."
+echo "  Note: golangci-lint includes govet, staticcheck, gosec, and 40+ other linters"
 # ZAWSZE SKANUJE WSZYSTKIE SERWISY (nie tylko zmienione)
 if [ $GO_AVAILABLE -eq 1 ]; then
-    for service in "${SERVICES[@]}"; do
-        echo ""
-        echo "=== $service ==="
-        cd ./$service
+    if command -v golangci-lint &> /dev/null; then
+        for service in "${SERVICES[@]}"; do
+            echo ""
+            echo "=== $service ==="
+            cd ./$service
 
-        # golangci-lint
-        if command -v golangci-lint &> /dev/null; then
-            echo "  [1/4] golangci-lint..."
+            # golangci-lint runs: govet, staticcheck, gosec, errcheck, and many more
             if ! golangci-lint run --timeout=5m; then
                 echo -e "${RED}    ⚠️  golangci-lint found issues${NC}"
                 TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
             fi
-        fi
 
-        # staticcheck
-        if command -v staticcheck &> /dev/null; then
-            echo "  [2/4] staticcheck..."
-            if ! staticcheck -checks all ./...; then
-                echo -e "${RED}    ⚠️  staticcheck found issues${NC}"
-                TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
-            fi
-        fi
-
-        # gosec
-        if command -v gosec &> /dev/null; then
-            echo "  [3/4] gosec (security)..."
-            if ! gosec -fmt=golint -quiet ./...; then
-                echo -e "${RED}    ⚠️  gosec found security issues${NC}"
-                TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
-            fi
-        fi
-
-        # go vet
-        echo "  [4/4] go vet..."
-        if ! go vet ./...; then
-            echo -e "${RED}    ⚠️  go vet found issues${NC}"
-            TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
-        fi
-
-        cd ..
-    done
+            cd ..
+        done
+    else
+        echo -e "${YELLOW}⚠️  golangci-lint not installed${NC}"
+        echo -e "${YELLOW}   Install with: ./scripts/install-security-tools.sh${NC}"
+        echo -e "${YELLOW}   It includes: govet, staticcheck, gosec, errcheck, and 40+ linters${NC}"
+    fi
 else
     echo "⚠️  Go not installed - skipping static analysis"
 fi

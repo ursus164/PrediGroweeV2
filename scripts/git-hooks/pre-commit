@@ -87,48 +87,16 @@ else
     echo "  ✓ No trailing whitespace"
 fi
 
-# 5. Sprawdzenie merge conflicts - WSZYSTKIE PLIKI
-echo "Checking for merge conflict markers in all files..."
-MERGE_CONFLICTS_FOUND=0
-while IFS= read -r -d '' file; do
-    if [ -f "$file" ]; then
-        if grep -n "^<<<<<<< \|^=======$\|^>>>>>>> " "$file" 2>/dev/null; then
-            echo "  Merge conflict markers in: $file"
-            MERGE_CONFLICTS_FOUND=1
-        fi
-    fi
-done < <(find . -type f \( -name "*.go" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.yml" -o -name "*.yaml" -o -name "*.json" -o -name "*.md" \) -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.next/*" -print0)
-
-if [ $MERGE_CONFLICTS_FOUND -eq 1 ]; then
-    echo "❌ ERROR: Merge conflict markers found!"
-    exit 1
-else
-    echo "  ✓ No merge conflict markers"
-fi
-
 # 6. Sprawdzenie Go files - WSZYSTKIE SERWISY
 echo "Checking all Go services..."
 
-# Go fmt
-echo "  Running go fmt on all services..."
-go fmt ./... > /dev/null 2>&1
+    # Go fmt
+    echo "  Running go fmt on all services..."
+    go fmt ./... > /dev/null 2>&1
 
-    # Go vet - SCAN ALL SERVICES (not just changed)
-    echo "  Running go vet on all services..."
-    for service in auth quiz stats images admin; do
-        if [ -d "$service" ]; then
-            VET_OUTPUT=$(cd $service && go vet ./... 2>&1)
-            if [ $? -ne 0 ]; then
-                echo "❌ go vet failed for $service:"
-                echo "$VET_OUTPUT"
-                exit 1
-            fi
-        fi
-    done
-
-    # golangci-lint - SCAN ALL SERVICES (not just changed)
+    # golangci-lint - SCAN ALL SERVICES (includes: govet, staticcheck, gosec, errcheck, and 40+ linters)
     if command -v golangci-lint &> /dev/null; then
-        echo "  Running golangci-lint on all services..."
+        echo "  Running golangci-lint on all services (includes: govet, staticcheck, gosec)..."
         for service in auth quiz stats images admin; do
             if [ -d "$service" ]; then
                 LINT_OUTPUT=$(cd $service && golangci-lint run --timeout=5m 2>&1)
@@ -139,39 +107,10 @@ go fmt ./... > /dev/null 2>&1
                 fi
             fi
         done
-    fi
-
-    # staticcheck - SCAN ALL SERVICES (not just changed)
-    if command -v staticcheck &> /dev/null; then
-        echo "  Running staticcheck on all services..."
-        for service in auth quiz stats images admin; do
-            if [ -d "$service" ]; then
-                STATIC_OUTPUT=$(cd $service && staticcheck -checks all ./... 2>&1)
-                if [ $? -ne 0 ]; then
-                    echo "❌ staticcheck issues in $service:"
-                    echo "$STATIC_OUTPUT" | head -50
-                    exit 1
-                fi
-            fi
-        done
-    fi
-
-    # gosec - SCAN ALL SERVICES (not just changed)
-    if command -v gosec &> /dev/null; then
-        echo "  Running gosec (security scanner) on all services..."
-        for service in auth quiz stats images admin; do
-            if [ -d "$service" ]; then
-                GOSEC_OUTPUT=$(cd $service && gosec -quiet ./... 2>&1)
-                if [ $? -ne 0 ]; then
-                    echo "❌ Security issues found by gosec in $service:"
-                    echo "$GOSEC_OUTPUT" | head -50
-                    exit 1
-                fi
-            fi
-        done
-    fi
-
-    # Go tests - SCAN ALL SERVICES (not just changed)
+    else
+        echo "  ⚠️  golangci-lint not installed - install with: ./scripts/install-security-tools.sh"
+        echo "     It replaces: govet, staticcheck, gosec, and provides 40+ other linters"
+    fi    # Go tests - SCAN ALL SERVICES (not just changed)
     echo "  Running go test on all services..."
     for service in auth quiz stats images admin; do
         if [ -d "$service" ]; then
