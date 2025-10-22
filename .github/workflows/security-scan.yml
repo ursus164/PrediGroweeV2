@@ -286,7 +286,8 @@ jobs:
             echo "❌ Large files detected - consider using Git LFS"
             exit 1
           fi
-          echo "✅ All files within size limit"      - name: Check trailing whitespace
+          echo "✅ All files within size limit"
+      - name: Check trailing whitespace
         run: |
           echo "Checking trailing whitespace..."
           TRAILING_WS_FOUND=0

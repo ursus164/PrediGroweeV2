@@ -1,3 +1,4 @@
+// Package middleware contains HTTP middleware utilities for the Images service.
 package middleware
 
 import (
@@ -7,6 +8,7 @@ import (
 	"net/http"
 )
 
+// VerifyToken ensures that a valid access token is present before executing the next handler.
 func VerifyToken(next http.HandlerFunc, authClient *clients.AuthClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		accessToken, err := ExtractAccessTokenFromRequest(r)
@@ -26,6 +28,7 @@ func VerifyToken(next http.HandlerFunc, authClient *clients.AuthClient) http.Han
 		next(w, r)
 	}
 }
+// ExtractAccessTokenFromRequest extracts the access token from Authorization header or cookie.
 func ExtractAccessTokenFromRequest(r *http.Request) (string, error) {
 	authHeaderValue := r.Header.Get("Authorization")
 	if authHeaderValue != "" {

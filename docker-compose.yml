@@ -12,6 +12,7 @@ services:
       - quiz
       - stats
       - admin
+      - frontend
     networks:
       - frontend_network
       - backend_network
