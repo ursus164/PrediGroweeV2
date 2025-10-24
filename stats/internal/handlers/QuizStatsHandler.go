@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"go.uber.org/zap"
 	"net/http"
@@ -9,25 +10,29 @@ import (
 	"strconv"
 )
 
+// QuizStatsHandler handles HTTP requests for quiz statistics.
 type QuizStatsHandler struct {
 	storage storage.Storage
 	logger  *zap.Logger
 }
 
+// NewQuizStatsHandler creates a new QuizStatsHandler instance.
 func NewQuizStatsHandler(store storage.Storage, logger *zap.Logger) *QuizStatsHandler {
 	return &QuizStatsHandler{
 		storage: store,
 		logger:  logger,
 	}
 }
+
+// GetStats retrieves statistics for a specific quiz session.
 func (h *QuizStatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("user_id").(int)
-	quizId := r.PathValue("quizSessionId")
-	if quizId == "" {
+	quizID := r.PathValue("quizSessionId")
+	if quizID == "" {
 		http.Error(w, "missing quiz id", http.StatusBadRequest)
 		return
 	}
-	quizSessionID, err := strconv.Atoi(quizId)
+	quizSessionID, err := strconv.Atoi(quizID)
 	if err != nil {
 		http.Error(w, "invalid quiz id", http.StatusBadRequest)
 		return
@@ -48,9 +53,12 @@ func (h *QuizStatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	err = stats.ToJSON(w)
+	if err := stats.ToJSON(w); err != nil {
+		h.logger.Error("failed to write response", zap.Error(err))
+	}
 }
 
+// SaveSession saves a new quiz session.
 func (h *QuizStatsHandler) SaveSession(w http.ResponseWriter, r *http.Request) {
 	var sessionData models.QuizSession
 	err := sessionData.FromJSON(r.Body)
@@ -66,13 +74,14 @@ func (h *QuizStatsHandler) SaveSession(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// FinishSession marks a quiz session as finished.
 func (h *QuizStatsHandler) FinishSession(w http.ResponseWriter, r *http.Request) {
-	quizId := r.PathValue("quizSessionId")
-	if quizId == "" {
+	quizID := r.PathValue("quizSessionId")
+	if quizID == "" {
 		http.Error(w, "missing quiz id", http.StatusBadRequest)
 		return
 	}
-	quizSessionID, err := strconv.Atoi(quizId)
+	quizSessionID, err := strconv.Atoi(quizID)
 	if err != nil {
 		http.Error(w, "invalid quiz id", http.StatusBadRequest)
 		return
@@ -85,13 +94,19 @@ func (h *QuizStatsHandler) FinishSession(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusOK)
 }
 
+// SaveResponse saves a question response for a quiz session.
 func (h *QuizStatsHandler) SaveResponse(w http.ResponseWriter, r *http.Request) {
-	sessionId := r.PathValue("quizSessionId")
-	if sessionId == "" {
+	sessionIDStr := r.PathValue("quizSessionId")
+	if sessionIDStr == "" {
 		http.Error(w, "missing session id", http.StatusBadRequest)
 		return
 	}
-	sessionID, err := strconv.Atoi(sessionId)
+	sessionID, err := strconv.Atoi(sessionIDStr)
+	if err != nil {
+		h.logger.Error("failed to parse session id", zap.Error(err))
+		http.Error(w, "invalid session id", http.StatusBadRequest)
+		return
+	}
 	h.logger.Info("SaveResponseHandler.GetResponses")
 	var response models.QuestionResponse
 	err = response.FromJSON(r.Body)
@@ -102,7 +117,7 @@ func (h *QuizStatsHandler) SaveResponse(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	session, err := h.storage.GetQuizSessionByID(sessionID)
-	if err == storage.ErrSessionNotFound {
+	if errors.Is(err, storage.ErrSessionNotFound) {
 		err = h.storage.SaveSession(&models.QuizSession{
 			SessionID: sessionID,
 		})
@@ -122,6 +137,10 @@ func (h *QuizStatsHandler) SaveResponse(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	// todo: check if response already exists
-	err = h.storage.SaveResponse(sessionID, &response)
+	if err := h.storage.SaveResponse(sessionID, &response); err != nil {
+		h.logger.Error("failed to save response", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }

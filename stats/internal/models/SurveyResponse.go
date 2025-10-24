@@ -5,6 +5,7 @@ import (
 	"io"
 )
 
+// SurveyResponse represents a user's survey response with demographic information.
 type SurveyResponse struct {
 	UserID          int    `json:"user_id"`
 	Gender          string `json:"gender"`
@@ -18,6 +19,7 @@ type SurveyResponse struct {
 	Acknowledgments string `json:"acknowledgments"`
 }
 
+// FromJSON decodes a SurveyResponse from JSON.
 func (s *SurveyResponse) FromJSON(reader io.Reader) error {
 	return json.NewDecoder(reader).Decode(s)
 }

@@ -10,15 +10,18 @@ import (
 	"stats/internal/storage"
 )
 
+// SessionsAccuracyHandler handles HTTP requests for session accuracy data.
 type SessionsAccuracyHandler struct {
 	store  storage.Storage
 	logger *zap.Logger
 }
 
+// NewSessionsAccuracyHandler creates a new SessionsAccuracyHandler instance.
 func NewSessionsAccuracyHandler(s storage.Storage, l *zap.Logger) *SessionsAccuracyHandler {
 	return &SessionsAccuracyHandler{store: s, logger: l}
 }
 
+// Handle retrieves accuracy data for multiple quiz sessions.
 func (h *SessionsAccuracyHandler) Handle(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("ids")
 	if q == "" {

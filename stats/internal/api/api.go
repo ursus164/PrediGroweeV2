@@ -1,3 +1,4 @@
+// Package api provides the HTTP server implementation for the stats service.
 package api
 
 import (
@@ -15,15 +16,17 @@ import (
 	"time"
 )
 
-type ApiServer struct {
+// Server is the HTTP server for the stats service.
+type Server struct {
 	addr       string
 	authClient *clients.AuthClient
 	storage    storage.Storage
 	logger     *zap.Logger
 }
 
-func NewApiServer(addr string, storage storage.Storage, logger *zap.Logger, authClient *clients.AuthClient) *ApiServer {
-	return &ApiServer{
+// NewServer creates a new Server instance.
+func NewServer(addr string, storage storage.Storage, logger *zap.Logger, authClient *clients.AuthClient) *Server {
+	return &Server{
 		addr:       addr,
 		authClient: authClient,
 		storage:    storage,
@@ -31,7 +34,8 @@ func NewApiServer(addr string, storage storage.Storage, logger *zap.Logger, auth
 	}
 }
 
-func (a *ApiServer) Run() {
+// Run starts the HTTP server and blocks until it's shut down.
+func (a *Server) Run() {
 	mux := http.NewServeMux()
 	a.registerRoutes(mux)
 	corsMiddleware := cors.New(cors.Options{
@@ -71,28 +75,28 @@ func (a *ApiServer) Run() {
 	a.logger.Info("Server exiting")
 }
 
-func (a *ApiServer) registerRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("/health", func(rw http.ResponseWriter, r *http.Request) {
+func (a *Server) registerRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/health", func(rw http.ResponseWriter, _ *http.Request) {
 		rw.WriteHeader(http.StatusOK)
 	})
-	internalApiKey := os.Getenv("INTERNAL_API_KEY")
+	internalAPIKey := os.Getenv("INTERNAL_API_KEY")
 	//internal
-	mux.HandleFunc("POST /stats/sessions/save", middleware.InternalAuth(handlers.NewQuizStatsHandler(a.storage, a.logger).SaveSession, a.logger, internalApiKey))
-	mux.HandleFunc("POST /stats/sessions/{quizSessionId}/respond", middleware.InternalAuth(handlers.NewQuizStatsHandler(a.storage, a.logger).SaveResponse, a.logger, internalApiKey))
-	mux.HandleFunc("POST /stats/sessions/{quizSessionId}/finish", middleware.InternalAuth(handlers.NewQuizStatsHandler(a.storage, a.logger).FinishSession, a.logger, internalApiKey))
+	mux.HandleFunc("POST /stats/sessions/save", middleware.InternalAuth(handlers.NewQuizStatsHandler(a.storage, a.logger).SaveSession, a.logger, internalAPIKey))
+	mux.HandleFunc("POST /stats/sessions/{quizSessionId}/respond", middleware.InternalAuth(handlers.NewQuizStatsHandler(a.storage, a.logger).SaveResponse, a.logger, internalAPIKey))
+	mux.HandleFunc("POST /stats/sessions/{quizSessionId}/finish", middleware.InternalAuth(handlers.NewQuizStatsHandler(a.storage, a.logger).FinishSession, a.logger, internalAPIKey))
 	// admin
 	allStatsHandler := handlers.NewGetAllStatsHandler(a.storage, a.logger)
 	userStatsHandler := handlers.NewUserStatsHandler(a.storage, a.logger)
-	mux.HandleFunc("GET /stats/users/{id}", middleware.InternalAuth(userStatsHandler.Handle, a.logger, internalApiKey))
-	mux.HandleFunc("GET /stats/responses", middleware.InternalAuth(allStatsHandler.GetResponses, a.logger, internalApiKey))
-	mux.HandleFunc("GET /stats/questions/{id}/stats", middleware.InternalAuth(allStatsHandler.GetStatsForQuestion, a.logger, internalApiKey))
-	mux.HandleFunc("GET /stats/activity", middleware.InternalAuth(allStatsHandler.GetActivity, a.logger, internalApiKey))
-	mux.HandleFunc("GET /stats/summary", middleware.InternalAuth(allStatsHandler.GetSummary, a.logger, internalApiKey))
-	mux.HandleFunc("GET /stats/surveys/users/{id}", middleware.InternalAuth(handlers.NewSurveysHandler(a.storage, a.logger).GetSurvey, a.logger, internalApiKey))
-	mux.HandleFunc("GET /stats/grouped", middleware.InternalAuth(allStatsHandler.GetStatsGroupedBySurvey, a.logger, internalApiKey))
-	mux.HandleFunc("DELETE /stats/users/{id}/responses", middleware.InternalAuth(userStatsHandler.DeleteUserResponses, a.logger, internalApiKey))
-	mux.HandleFunc("DELETE /stats/responses/{id}", middleware.InternalAuth(allStatsHandler.DeleteResponse, a.logger, internalApiKey))
-	mux.HandleFunc("GET /stats/users/stats", middleware.InternalAuth(userStatsHandler.GetAllUsersStats, a.logger, internalApiKey))
+	mux.HandleFunc("GET /stats/users/{id}", middleware.InternalAuth(userStatsHandler.Handle, a.logger, internalAPIKey))
+	mux.HandleFunc("GET /stats/responses", middleware.InternalAuth(allStatsHandler.GetResponses, a.logger, internalAPIKey))
+	mux.HandleFunc("GET /stats/questions/{id}/stats", middleware.InternalAuth(allStatsHandler.GetStatsForQuestion, a.logger, internalAPIKey))
+	mux.HandleFunc("GET /stats/activity", middleware.InternalAuth(allStatsHandler.GetActivity, a.logger, internalAPIKey))
+	mux.HandleFunc("GET /stats/summary", middleware.InternalAuth(allStatsHandler.GetSummary, a.logger, internalAPIKey))
+	mux.HandleFunc("GET /stats/surveys/users/{id}", middleware.InternalAuth(handlers.NewSurveysHandler(a.storage, a.logger).GetSurvey, a.logger, internalAPIKey))
+	mux.HandleFunc("GET /stats/grouped", middleware.InternalAuth(allStatsHandler.GetStatsGroupedBySurvey, a.logger, internalAPIKey))
+		mux.HandleFunc("DELETE /stats/internal/users/{id}/responses", middleware.InternalAuth(userStatsHandler.DeleteUserResponses, a.logger, internalAPIKey))
+	mux.HandleFunc("DELETE /stats/responses/{id}", middleware.InternalAuth(allStatsHandler.DeleteResponse, a.logger, internalAPIKey))
+	mux.HandleFunc("POST /stats/internal/users/stats", middleware.InternalAuth(userStatsHandler.GetAllUsersStats, a.logger, internalAPIKey))
 
 	//external
 	mux.HandleFunc("GET /stats/userStats", middleware.VerifyToken(handlers.NewUserStatsHandler(a.storage, a.logger).Handle, a.authClient))
@@ -104,5 +108,5 @@ func (a *ApiServer) registerRoutes(mux *http.ServeMux) {
 	leaderboardHandler := handlers.NewLeaderboardHandler(a.storage, a.logger)
     mux.HandleFunc("GET /stats/leaderboard", leaderboardHandler.Get)
 
-	mux.HandleFunc("GET /stats/sessions/accuracy", middleware.InternalAuth(handlers.NewSessionsAccuracyHandler(a.storage, a.logger).Handle,a.logger,internalApiKey,),)
+	mux.HandleFunc("GET /stats/sessions/accuracy", middleware.InternalAuth(handlers.NewSessionsAccuracyHandler(a.storage, a.logger).Handle, a.logger, internalAPIKey))
 }

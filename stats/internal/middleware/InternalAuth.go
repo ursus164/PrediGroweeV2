@@ -1,3 +1,4 @@
+// Package middleware provides HTTP middleware implementations for the stats service.
 package middleware
 
 import (
@@ -5,6 +6,7 @@ import (
 	"net/http"
 )
 
+// InternalAuth is a middleware that validates API key for internal service requests.
 func InternalAuth(next http.HandlerFunc, logger *zap.Logger, validAPIKey string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("InternalAuth middleware")

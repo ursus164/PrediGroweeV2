@@ -1,5 +1,7 @@
+// Package models provides data structures for the stats service.
 package models
 
+// LeaderboardRow represents a single entry in the quiz leaderboard.
 type LeaderboardRow struct {
 	UserID         int     `json:"user_id"`
 	Education      *string `json:"education,omitempty"`

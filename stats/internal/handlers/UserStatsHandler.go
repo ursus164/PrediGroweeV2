@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go.uber.org/zap"
 	"net/http"
@@ -17,11 +18,13 @@ const (
 	ctxRoleKeySecondary = "role"      // fallback
 )
 
+// UserStatsHandler handles HTTP requests for user statistics.
 type UserStatsHandler struct {
 	storage storage.Storage
 	logger  *zap.Logger
 }
 
+// NewUserStatsHandler creates a new UserStatsHandler instance.
 func NewUserStatsHandler(storage storage.Storage, logger *zap.Logger) *UserStatsHandler {
 	return &UserStatsHandler{storage: storage, logger: logger}
 }
@@ -68,7 +71,7 @@ func (h *UserStatsHandler) resolveTargetUser(r *http.Request, role string) (int,
 	return userID, 0, nil
 }
 
-// GET /stats/userStats
+// Handle retrieves user statistics for the authenticated user or specified user.
 func (h *UserStatsHandler) Handle(rw http.ResponseWriter, r *http.Request) {
 	role := readRole(r)
 
@@ -90,7 +93,7 @@ func (h *UserStatsHandler) Handle(rw http.ResponseWriter, r *http.Request) {
 
 	for _, mode := range []string{models.QuizModeEducational, models.QuizModeClassic, models.QuizModeLimitedTime} {
 		correct, wrong, err := h.storage.GetUserStatsForMode(userID, mode)
-		if err == storage.ErrStatsNotFound {
+		if errors.Is(err, storage.ErrStatsNotFound) {
 			continue
 		}
 		if err != nil {
@@ -118,7 +121,7 @@ func (h *UserStatsHandler) Handle(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GET /stats/sessions
+// GetUserSessions retrieves all quiz sessions for a user.
 func (h *UserStatsHandler) GetUserSessions(rw http.ResponseWriter, r *http.Request) {
 	role := readRole(r)
 
@@ -147,7 +150,7 @@ func (h *UserStatsHandler) GetUserSessions(rw http.ResponseWriter, r *http.Reque
 	}
 }
 
-// DELETE /stats/users/{id}/responses (internal)
+// DeleteUserResponses deletes all responses for a specific user.
 func (h *UserStatsHandler) DeleteUserResponses(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.Atoi(strings.TrimSpace(r.PathValue("id")))
 	if err != nil {
@@ -164,7 +167,7 @@ func (h *UserStatsHandler) DeleteUserResponses(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// GET /stats/users/stats (internal)
+// GetAllUsersStats retrieves statistics for all users.
 func (h *UserStatsHandler) GetAllUsersStats(w http.ResponseWriter, _ *http.Request) {
 	stats, err := h.storage.GetAllUsersStats()
 	if err != nil {
