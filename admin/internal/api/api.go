@@ -1,3 +1,4 @@
+// Package api provides the HTTP API server implementation for the admin service.
 package api
 
 import (
@@ -5,16 +6,18 @@ import (
 	"admin/internal/handlers"
 	"admin/internal/middleware"
 	"context"
-	"github.com/rs/cors"
-	"go.uber.org/zap"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/rs/cors"
+	"go.uber.org/zap"
 )
 
-type ApiServer struct {
+// Server is the HTTP server for the admin service.
+type Server struct {
 	addr        string
 	logger      *zap.Logger
 	authClient  clients.AuthClient
@@ -22,8 +25,9 @@ type ApiServer struct {
 	quizClient  clients.QuizClient
 }
 
-func NewApiServer(addr string, logger *zap.Logger, authClient clients.AuthClient, statsClient clients.StatsClient, quizClient clients.QuizClient) *ApiServer {
-	return &ApiServer{
+// NewAPIServer creates a new instance of Server.
+func NewAPIServer(addr string, logger *zap.Logger, authClient clients.AuthClient, statsClient clients.StatsClient, quizClient clients.QuizClient) *Server {
+	return &Server{
 		addr:        addr,
 		logger:      logger,
 		authClient:  authClient,
@@ -32,7 +36,8 @@ func NewApiServer(addr string, logger *zap.Logger, authClient clients.AuthClient
 	}
 }
 
-func (a *ApiServer) Run() {
+// Run starts the API server and handles graceful shutdown.
+func (a *Server) Run() {
 	mux := http.NewServeMux()
 	a.registerRoutes(mux)
 
@@ -71,11 +76,13 @@ func (a *ApiServer) Run() {
 	a.logger.Info("Server exiting")
 }
 
-func (a *ApiServer) registerRoutes(mux *http.ServeMux) {
+func (a *Server) registerRoutes(mux *http.ServeMux) {
 	// health check
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		if _, err := w.Write([]byte("OK")); err != nil {
+			a.logger.Error("failed to write health check response", zap.Error(err))
+		}
 	})
 
 	// users

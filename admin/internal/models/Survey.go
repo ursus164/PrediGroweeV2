@@ -1,5 +1,6 @@
 package models
 
+// SurveyResponse represents survey data collected from a user.
 type SurveyResponse struct {
 	UserID          int    `json:"user_id"`
 	Gender          string `json:"gender"`

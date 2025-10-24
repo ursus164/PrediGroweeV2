@@ -3,13 +3,16 @@ package clients
 import (
 	"admin/internal/models"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"go.uber.org/zap"
 	"net/http"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
+// StatsClient defines the interface for stats service operations.
 type StatsClient interface {
 	GetUserStats(userID string) (models.UserStats, error)
 	GetAllResponses() ([]models.QuestionResponse, error)
@@ -26,12 +29,14 @@ type StatsClient interface {
 	GetSessionsAccuracy(sessionIDs []int) ([]models.SessionAccuracy, error)
 }
 
+// StatsRestClient is an HTTP client for the stats service.
 type StatsRestClient struct {
 	addr   string
 	apiKey string
 	logger *zap.Logger
 }
 
+// NewStatsRestClient creates a new instance of StatsRestClient.
 func NewStatsRestClient(addr string, apiKey string, logger *zap.Logger) *StatsRestClient {
 	return &StatsRestClient{
 		addr:   addr,
@@ -39,13 +44,15 @@ func NewStatsRestClient(addr string, apiKey string, logger *zap.Logger) *StatsRe
 		logger: logger,
 	}
 }
+
+// NewRequestWithAuth creates a new HTTP request with authentication headers.
 func (c *StatsRestClient) NewRequestWithAuth(method, path string, body interface{}) (*http.Request, error) {
 	jsonPayload, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	req, err := http.NewRequest(method, c.addr+path, bytes.NewBuffer(jsonPayload))
+	req, err := http.NewRequestWithContext(context.Background(), method, c.addr+path, bytes.NewBuffer(jsonPayload))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -56,6 +63,7 @@ func (c *StatsRestClient) NewRequestWithAuth(method, path string, body interface
 	return req, nil
 }
 
+// MakeRequest executes an HTTP request.
 func (c *StatsRestClient) MakeRequest(req *http.Request) (*http.Response, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -65,6 +73,7 @@ func (c *StatsRestClient) MakeRequest(req *http.Request) (*http.Response, error)
 	return resp, nil
 }
 
+// GetUserStats retrieves statistics for a specific user.
 func (c *StatsRestClient) GetUserStats(userID string) (models.UserStats, error) {
 	req, err := c.NewRequestWithAuth("GET", fmt.Sprintf("/users/%s", userID), nil)
 	if err != nil {
@@ -75,7 +84,11 @@ func (c *StatsRestClient) GetUserStats(userID string) (models.UserStats, error) 
 	if err != nil {
 		return models.UserStats{}, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return models.UserStats{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -87,6 +100,7 @@ func (c *StatsRestClient) GetUserStats(userID string) (models.UserStats, error) 
 	return userStats, nil
 }
 
+// GetAllResponses retrieves all question responses.
 func (c *StatsRestClient) GetAllResponses() ([]models.QuestionResponse, error) {
 	req, err := c.NewRequestWithAuth("GET", "/responses", nil)
 	if err != nil {
@@ -96,7 +110,11 @@ func (c *StatsRestClient) GetAllResponses() ([]models.QuestionResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return []models.QuestionResponse{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -107,6 +125,8 @@ func (c *StatsRestClient) GetAllResponses() ([]models.QuestionResponse, error) {
 	}
 	return responses, nil
 }
+
+// GetStatsForQuestion retrieves statistics for a specific question.
 func (c *StatsRestClient) GetStatsForQuestion(id string) (models.QuestionStats, error) {
 	req, err := c.NewRequestWithAuth("GET", fmt.Sprintf("/questions/%s/stats", id), nil)
 	if err != nil {
@@ -116,7 +136,11 @@ func (c *StatsRestClient) GetStatsForQuestion(id string) (models.QuestionStats, 
 	if err != nil {
 		return models.QuestionStats{}, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return models.QuestionStats{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -127,6 +151,8 @@ func (c *StatsRestClient) GetStatsForQuestion(id string) (models.QuestionStats, 
 	}
 	return stats, nil
 }
+
+// GetStatsForAllQuestions retrieves statistics for all questions.
 func (c *StatsRestClient) GetStatsForAllQuestions() ([]models.QuestionStats, error) {
 	req, err := c.NewRequestWithAuth("GET", "/questions/-/stats", nil)
 	if err != nil {
@@ -136,7 +162,11 @@ func (c *StatsRestClient) GetStatsForAllQuestions() ([]models.QuestionStats, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return []models.QuestionStats{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -148,6 +178,7 @@ func (c *StatsRestClient) GetStatsForAllQuestions() ([]models.QuestionStats, err
 	return stats, nil
 }
 
+// GetActivityStats retrieves activity statistics.
 func (c *StatsRestClient) GetActivityStats() ([]models.ActivityStats, error) {
 	req, err := c.NewRequestWithAuth("GET", "/activity", nil)
 	if err != nil {
@@ -157,7 +188,11 @@ func (c *StatsRestClient) GetActivityStats() ([]models.ActivityStats, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return []models.ActivityStats{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -168,6 +203,8 @@ func (c *StatsRestClient) GetActivityStats() ([]models.ActivityStats, error) {
 	}
 	return stats, nil
 }
+
+// GetSummary retrieves stats service summary statistics.
 func (c *StatsRestClient) GetSummary() (models.StatsSummary, error) {
 	req, err := c.NewRequestWithAuth("GET", "/summary", nil)
 	if err != nil {
@@ -177,7 +214,11 @@ func (c *StatsRestClient) GetSummary() (models.StatsSummary, error) {
 	if err != nil {
 		return models.StatsSummary{}, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return models.StatsSummary{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -189,6 +230,7 @@ func (c *StatsRestClient) GetSummary() (models.StatsSummary, error) {
 	return summary, nil
 }
 
+// GetSurvey retrieves survey data for a specific user.
 func (c *StatsRestClient) GetSurvey(id string) (models.SurveyResponse, error) {
 	req, err := c.NewRequestWithAuth("GET", fmt.Sprintf("/surveys/users/%s", id), nil)
 	if err != nil {
@@ -198,7 +240,11 @@ func (c *StatsRestClient) GetSurvey(id string) (models.SurveyResponse, error) {
 	if err != nil {
 		return models.SurveyResponse{}, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return models.SurveyResponse{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -209,6 +255,8 @@ func (c *StatsRestClient) GetSurvey(id string) (models.SurveyResponse, error) {
 	}
 	return survey, nil
 }
+
+// GetAllSurveys retrieves all survey responses.
 func (c *StatsRestClient) GetAllSurveys() ([]models.SurveyResponse, error) {
 	req, err := c.NewRequestWithAuth("GET", "/surveys/users/-", nil)
 	if err != nil {
@@ -218,7 +266,11 @@ func (c *StatsRestClient) GetAllSurveys() ([]models.SurveyResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return []models.SurveyResponse{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -230,6 +282,7 @@ func (c *StatsRestClient) GetAllSurveys() ([]models.SurveyResponse, error) {
 	return surveys, nil
 }
 
+// GetStatsGroupedBySurvey retrieves statistics grouped by survey parameter.
 func (c *StatsRestClient) GetStatsGroupedBySurvey(groupBy string) ([]models.SurveyGroupedStats, error) {
 	req, err := c.NewRequestWithAuth("GET", fmt.Sprintf("/grouped?groupBy=%s", groupBy), nil)
 	if err != nil {
@@ -239,7 +292,11 @@ func (c *StatsRestClient) GetStatsGroupedBySurvey(groupBy string) ([]models.Surv
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -248,6 +305,7 @@ func (c *StatsRestClient) GetStatsGroupedBySurvey(groupBy string) ([]models.Surv
 	return stats, err
 }
 
+// DeleteResponse deletes a specific response by ID.
 func (c *StatsRestClient) DeleteResponse(id string) error {
 	req, err := c.NewRequestWithAuth("DELETE", fmt.Sprintf("/responses/%s", id), nil)
 	if err != nil {
@@ -257,13 +315,18 @@ func (c *StatsRestClient) DeleteResponse(id string) error {
 	if err != nil {
 		return fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 	return nil
 }
 
+// DeleteUserResponses deletes all responses for a specific user.
 func (c *StatsRestClient) DeleteUserResponses(id string) error {
 	req, err := c.NewRequestWithAuth("DELETE", fmt.Sprintf("/users/%s/responses", id), nil)
 	if err != nil {
@@ -273,12 +336,18 @@ func (c *StatsRestClient) DeleteUserResponses(id string) error {
 	if err != nil {
 		return fmt.Errorf("failed to make request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 	return nil
 }
+
+// GetAllUsersStats retrieves quiz statistics for all users.
 func (c *StatsRestClient) GetAllUsersStats() ([]models.UserQuizStats, error) {
 	req, err := c.NewRequestWithAuth("GET", "/users/stats", nil)
 	if err != nil {
@@ -288,19 +357,27 @@ func (c *StatsRestClient) GetAllUsersStats() ([]models.UserQuizStats, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 
 	var stats []models.UserQuizStats
 	err = json.NewDecoder(resp.Body).Decode(&stats)
 	return stats, err
 }
+
+// GetSessionsAccuracy retrieves accuracy statistics for specified session IDs.
 func (c *StatsRestClient) GetSessionsAccuracy(sessionIDs []int) ([]models.SessionAccuracy, error) {
 	if len(sessionIDs) == 0 {
 		return []models.SessionAccuracy{}, nil
 	}
 	b := strings.Builder{}
 	for i, id := range sessionIDs {
-		if i > 0 { b.WriteByte(',') }
+		if i > 0 {
+			b.WriteByte(',')
+		}
 		b.WriteString(fmt.Sprintf("%d", id))
 	}
 	path := fmt.Sprintf("/sessions/accuracy?ids=%s", b.String())
@@ -313,7 +390,11 @@ func (c *StatsRestClient) GetSessionsAccuracy(sessionIDs []int) ([]models.Sessio
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}

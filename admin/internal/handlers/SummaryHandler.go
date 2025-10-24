@@ -5,11 +5,13 @@ import (
 	"admin/internal/models"
 	"encoding/json"
 	"fmt"
-	"go.uber.org/zap"
 	"net/http"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
+// SummaryHandler handles summary statistics HTTP requests.
 type SummaryHandler struct {
 	logger      *zap.Logger
 	authClient  clients.AuthClient
@@ -17,6 +19,7 @@ type SummaryHandler struct {
 	quizClient  clients.QuizClient
 }
 
+// NewSummaryHandler creates a new SummaryHandler instance.
 func NewSummaryHandler(logger *zap.Logger, authClient clients.AuthClient, statsClient clients.StatsClient, quizClient clients.QuizClient) *SummaryHandler {
 	return &SummaryHandler{
 		logger:      logger,
@@ -26,7 +29,8 @@ func NewSummaryHandler(logger *zap.Logger, authClient clients.AuthClient, statsC
 	}
 }
 
-func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
+// GetSummary retrieves aggregated summary statistics from all services.
+func (h *SummaryHandler) GetSummary(w http.ResponseWriter, _ *http.Request) {
 	wg := sync.WaitGroup{}
 	wg.Add(3)
 	var errs []error
@@ -57,14 +61,14 @@ func (h *SummaryHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
 	}()
 	wg.Wait()
 	if len(errs) != 0 {
-		err := fmt.Errorf(fmt.Sprintf("failed to get summary: %v", errs))
+		err := fmt.Errorf("failed to get summary: %v", errs)
 		h.logger.Error("failed to get summary", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	summaryJson, _ := json.Marshal(summary)
-	_, err := w.Write(summaryJson)
+	summaryJSON, _ := json.Marshal(summary)
+	_, err := w.Write(summaryJSON)
 	if err != nil {
 		h.logger.Error("failed to write response", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)

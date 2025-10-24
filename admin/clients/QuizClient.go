@@ -3,12 +3,15 @@ package clients
 import (
 	"admin/internal/models"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"go.uber.org/zap"
 	"net/http"
+
+	"go.uber.org/zap"
 )
 
+// QuizClient defines the interface for quiz service operations.
 type QuizClient interface {
 	GetAllQuestions() ([]models.Question, error)
 	GetAllParameters() ([]models.Parameter, error)
@@ -31,29 +34,32 @@ type QuizClient interface {
 	ListSessionsByTestCode(code string) ([]TestSession, error)
 }
 
+// QuizRestClient is an HTTP client for the quiz service.
 type QuizRestClient struct {
 	addr   string
 	apiKey string
 	logger *zap.Logger
 }
 
+// ActiveSession represents an active quiz session.
 type ActiveSession struct {
-	ID int `json:"id"`
-	UserID int `json:"user_id"`
-	Status string `json:"status"`
-	Mode string `json:"mode"`
-	CurrentQuestion int `json:"current_question"`
-	CurrentGroup int `json:"current_group"`
-	TestID *int `json:"test_id,omitempty"`
-	TestCode *string `json:"test_code,omitempty"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-	LastSeen string `json:"last_seen"`
-	Accuracy       *float64 `json:"accuracy,omitempty"`
-	CorrectAnswers *int     `json:"correct_answers,omitempty"`
-	TotalAnswers   *int     `json:"total_answers,omitempty"`
+	ID              int      `json:"id"`
+	UserID          int      `json:"user_id"`
+	Status          string   `json:"status"`
+	Mode            string   `json:"mode"`
+	CurrentQuestion int      `json:"current_question"`
+	CurrentGroup    int      `json:"current_group"`
+	TestID          *int     `json:"test_id,omitempty"`
+	TestCode        *string  `json:"test_code,omitempty"`
+	CreatedAt       string   `json:"created_at"`
+	UpdatedAt       string   `json:"updated_at"`
+	LastSeen        string   `json:"last_seen"`
+	Accuracy        *float64 `json:"accuracy,omitempty"`
+	CorrectAnswers  *int     `json:"correct_answers,omitempty"`
+	TotalAnswers    *int     `json:"total_answers,omitempty"`
 }
 
+// TestSession represents a test session.
 type TestSession struct {
 	ID              int     `json:"id"`
 	UserID          int     `json:"user_id"`
@@ -68,6 +74,7 @@ type TestSession struct {
 	TestCode        *string `json:"test_code,omitempty"`
 }
 
+// NewQuizRestClient creates a new instance of QuizRestClient.
 func NewQuizRestClient(addr string, apiKey string, logger *zap.Logger) *QuizRestClient {
 	return &QuizRestClient{
 		addr:   addr,
@@ -76,6 +83,7 @@ func NewQuizRestClient(addr string, apiKey string, logger *zap.Logger) *QuizRest
 	}
 }
 
+// NewRequestWithAuth creates a new HTTP request with authentication headers.
 func (c *QuizRestClient) NewRequestWithAuth(method, path string, body interface{}) (*http.Request, error) {
 	var buf *bytes.Buffer
 	if body != nil {
@@ -88,7 +96,7 @@ func (c *QuizRestClient) NewRequestWithAuth(method, path string, body interface{
 		buf = bytes.NewBuffer(nil)
 	}
 
-	req, err := http.NewRequest(method, c.addr+path, buf)
+	req, err := http.NewRequestWithContext(context.Background(), method, c.addr+path, buf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -99,6 +107,7 @@ func (c *QuizRestClient) NewRequestWithAuth(method, path string, body interface{
 	return req, nil
 }
 
+// GetAllQuestions retrieves all quiz questions.
 func (c *QuizRestClient) GetAllQuestions() ([]models.Question, error) {
 	req, err := c.NewRequestWithAuth("GET", "/questions", nil)
 	if err != nil {
@@ -109,7 +118,11 @@ func (c *QuizRestClient) GetAllQuestions() ([]models.Question, error) {
 	if err != nil {
 		return []models.Question{}, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return []models.Question{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -118,6 +131,7 @@ func (c *QuizRestClient) GetAllQuestions() ([]models.Question, error) {
 	return questions, err
 }
 
+// GetQuestion retrieves a specific question by ID.
 func (c *QuizRestClient) GetQuestion(id string) (models.Question, error) {
 	req, err := c.NewRequestWithAuth("GET", fmt.Sprintf("/questions/%s", id), nil)
 	if err != nil {
@@ -128,7 +142,11 @@ func (c *QuizRestClient) GetQuestion(id string) (models.Question, error) {
 	if err != nil {
 		return models.Question{}, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return models.Question{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -137,6 +155,7 @@ func (c *QuizRestClient) GetQuestion(id string) (models.Question, error) {
 	return question, err
 }
 
+// GetAllParameters retrieves all quiz parameters.
 func (c *QuizRestClient) GetAllParameters() ([]models.Parameter, error) {
 	req, err := c.NewRequestWithAuth("GET", "/parameters", nil)
 	if err != nil {
@@ -147,7 +166,11 @@ func (c *QuizRestClient) GetAllParameters() ([]models.Parameter, error) {
 	if err != nil {
 		return []models.Parameter{}, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return []models.Parameter{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -156,6 +179,7 @@ func (c *QuizRestClient) GetAllParameters() ([]models.Parameter, error) {
 	return parameters, err
 }
 
+// UpdateParameter updates a quiz parameter.
 func (c *QuizRestClient) UpdateParameter(id string, parameter models.Parameter) error {
 	req, err := c.NewRequestWithAuth("PATCH", fmt.Sprintf("/parameters/%s", id), parameter)
 	if err != nil {
@@ -166,13 +190,18 @@ func (c *QuizRestClient) UpdateParameter(id string, parameter models.Parameter) 
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 	return nil
 }
 
+// DeleteParameter deletes a quiz parameter.
 func (c *QuizRestClient) DeleteParameter(id string) error {
 	req, err := c.NewRequestWithAuth("DELETE", fmt.Sprintf("/parameters/%s", id), nil)
 	if err != nil {
@@ -183,13 +212,18 @@ func (c *QuizRestClient) DeleteParameter(id string) error {
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 	return nil
 }
 
+// GetAllOptions retrieves all quiz options.
 func (c *QuizRestClient) GetAllOptions() ([]models.Option, error) {
 	req, err := c.NewRequestWithAuth("GET", "/options", nil)
 	if err != nil {
@@ -200,7 +234,11 @@ func (c *QuizRestClient) GetAllOptions() ([]models.Option, error) {
 	if err != nil {
 		return []models.Option{}, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return []models.Option{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -209,6 +247,7 @@ func (c *QuizRestClient) GetAllOptions() ([]models.Option, error) {
 	return options, err
 }
 
+// UpdateQuestion updates a quiz question.
 func (c *QuizRestClient) UpdateQuestion(id string, question models.Question) error {
 	req, err := c.NewRequestWithAuth("PATCH", fmt.Sprintf("/questions/%s", id), question)
 	if err != nil {
@@ -219,13 +258,18 @@ func (c *QuizRestClient) UpdateQuestion(id string, question models.Question) err
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 	return nil
 }
 
+// CreateParameter creates a new quiz parameter.
 func (c *QuizRestClient) CreateParameter(parameter models.Parameter) (models.Parameter, error) {
 	req, err := c.NewRequestWithAuth("POST", "/parameters", parameter)
 	if err != nil {
@@ -236,7 +280,11 @@ func (c *QuizRestClient) CreateParameter(parameter models.Parameter) (models.Par
 	if err != nil {
 		return models.Parameter{}, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusCreated {
 		return models.Parameter{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -247,6 +295,7 @@ func (c *QuizRestClient) CreateParameter(parameter models.Parameter) (models.Par
 	return createdParameter, nil
 }
 
+// UpdateOption updates a quiz option.
 func (c *QuizRestClient) UpdateOption(id string, option models.Option) error {
 	req, err := c.NewRequestWithAuth("PATCH", fmt.Sprintf("/options/%s", id), option)
 	if err != nil {
@@ -257,13 +306,18 @@ func (c *QuizRestClient) UpdateOption(id string, option models.Option) error {
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 	return nil
 }
 
+// CreateOption creates a new quiz option.
 func (c *QuizRestClient) CreateOption(option models.Option) (models.Option, error) {
 	req, err := c.NewRequestWithAuth("POST", "/options", option)
 	if err != nil {
@@ -274,7 +328,11 @@ func (c *QuizRestClient) CreateOption(option models.Option) (models.Option, erro
 	if err != nil {
 		return models.Option{}, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusCreated {
 		return models.Option{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -285,6 +343,7 @@ func (c *QuizRestClient) CreateOption(option models.Option) (models.Option, erro
 	return createdOption, nil
 }
 
+// DeleteOption deletes a quiz option.
 func (c *QuizRestClient) DeleteOption(id string) error {
 	req, err := c.NewRequestWithAuth("DELETE", fmt.Sprintf("/options/%s", id), nil)
 	if err != nil {
@@ -295,13 +354,18 @@ func (c *QuizRestClient) DeleteOption(id string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 	return nil
 }
 
+// GetSummary retrieves quiz service summary statistics.
 func (c *QuizRestClient) GetSummary() (models.QuizSummary, error) {
 	req, err := c.NewRequestWithAuth("GET", "/summary", nil)
 	if err != nil {
@@ -312,7 +376,11 @@ func (c *QuizRestClient) GetSummary() (models.QuizSummary, error) {
 	if err != nil {
 		return models.QuizSummary{}, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return models.QuizSummary{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -321,6 +389,7 @@ func (c *QuizRestClient) GetSummary() (models.QuizSummary, error) {
 	return summary, err
 }
 
+// UpdateParametersOrder updates the order of quiz parameters.
 func (c *QuizRestClient) UpdateParametersOrder(order []models.Parameter) error {
 	req, err := c.NewRequestWithAuth("PUT", "/parameters/order", order)
 	if err != nil {
@@ -331,13 +400,18 @@ func (c *QuizRestClient) UpdateParametersOrder(order []models.Parameter) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 	return nil
 }
 
+// GetSettings retrieves quiz settings.
 func (c *QuizRestClient) GetSettings() ([]models.Settings, error) {
 	req, err := c.NewRequestWithAuth("GET", "/settings", nil)
 	if err != nil {
@@ -348,7 +422,11 @@ func (c *QuizRestClient) GetSettings() ([]models.Settings, error) {
 	if err != nil {
 		return []models.Settings{}, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return []models.Settings{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
@@ -357,6 +435,7 @@ func (c *QuizRestClient) GetSettings() ([]models.Settings, error) {
 	return settings, err
 }
 
+// UpdateSettings updates quiz settings.
 func (c *QuizRestClient) UpdateSettings(settings []models.Settings) error {
 	req, err := c.NewRequestWithAuth("POST", "/settings", settings)
 	if err != nil {
@@ -367,13 +446,18 @@ func (c *QuizRestClient) UpdateSettings(settings []models.Settings) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 	return nil
 }
 
+// ApproveUser approves a user for quiz access.
 func (c *QuizRestClient) ApproveUser(userID int) error {
 	body := map[string]int{"user_id": userID}
 	req, err := c.NewRequestWithAuth("POST", "/approve", body)
@@ -385,32 +469,41 @@ func (c *QuizRestClient) ApproveUser(userID int) error {
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 	return nil
 }
 
+// UnapproveUser removes quiz access approval for a user.
 func (c *QuizRestClient) UnapproveUser(userID int) error {
-    body := map[string]int{"user_id": userID}
-    req, err := c.NewRequestWithAuth("POST", "/unapprove", body)
-    if err != nil {
-        return fmt.Errorf("failed to create request: %w", err)
-    }
-    client := &http.Client{}
-    resp, err := client.Do(req)
-    if err != nil {
-        return fmt.Errorf("failed to send request: %w", err)
-    }
-    defer resp.Body.Close()
-    if resp.StatusCode != http.StatusOK {
-        return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-    }
-    return nil
+	body := map[string]int{"user_id": userID}
+	req, err := c.NewRequestWithAuth("POST", "/unapprove", body)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+	return nil
 }
 
-
+// ListActiveSessions retrieves active quiz sessions with a given cutoff time.
 func (c *QuizRestClient) ListActiveSessions(cutoff int) ([]ActiveSession, error) {
 	if cutoff <= 0 {
 		cutoff = 5
@@ -424,7 +517,11 @@ func (c *QuizRestClient) ListActiveSessions(cutoff int) ([]ActiveSession, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -437,6 +534,7 @@ func (c *QuizRestClient) ListActiveSessions(cutoff int) ([]ActiveSession, error)
 	return out, nil
 }
 
+// ListSessionsByTestCode retrieves test sessions for a specific test code.
 func (c *QuizRestClient) ListSessionsByTestCode(code string) ([]TestSession, error) {
 	req, err := c.NewRequestWithAuth("GET", fmt.Sprintf("/tests/%s/sessions", code), nil)
 	if err != nil {
@@ -447,7 +545,11 @@ func (c *QuizRestClient) ListSessionsByTestCode(code string) ([]TestSession, err
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			c.logger.Error("failed to close response body", zap.Error(closeErr))
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
