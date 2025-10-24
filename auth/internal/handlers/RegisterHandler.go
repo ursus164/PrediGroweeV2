@@ -59,6 +59,11 @@ func (h *RegisterHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	verificationToken, err := auth.GenerateVerificationToken(strconv.Itoa(userCreated.ID))
+	if err != nil {
+		h.logger.Error("Error generating verification token", zap.Error(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 	err = auth.SendVerificationEmail(userCreated.Email, verificationToken)
 	if err != nil {
 		h.logger.Error("Error sending verification email", zap.Error(err))
@@ -121,8 +126,8 @@ func (h *RegisterHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid token", http.StatusBadRequest)
 		return
 	}
-	userId := jwtToken.Claims.(jwt.MapClaims)["sub"].(string)
-	userID, err := strconv.Atoi(userId)
+	userIDStr := jwtToken.Claims.(jwt.MapClaims)["sub"].(string)
+	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
 		h.logger.Error("Error converting user id", zap.Error(err))
 		http.Error(w, "Invalid token", http.StatusBadRequest)

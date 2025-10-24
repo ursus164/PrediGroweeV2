@@ -36,5 +36,5 @@ func (h *CreateRoleHandler) Handle(rw http.ResponseWriter, r *http.Request) {
 
 	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(http.StatusCreated)
-	json.NewEncoder(rw).Encode(createdRole)
+	_ = json.NewEncoder(rw).Encode(createdRole)
 }

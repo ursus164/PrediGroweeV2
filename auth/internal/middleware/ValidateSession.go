@@ -36,8 +36,8 @@ func ValidateSession(next http.HandlerFunc, storage storage.Store) http.HandlerF
 			return
 		}
 		log.Printf("User found: %+v", user)
-		newCtx := context.WithValue(r.Context(), "user_id", session.UserID)
-		newCtx = context.WithValue(newCtx, "user_role", user.Role)
+		newCtx := context.WithValue(r.Context(), userIDKey, session.UserID)
+		newCtx = context.WithValue(newCtx, userRoleKey, user.Role)
 		next(w, r.WithContext(newCtx))
 	}
 }

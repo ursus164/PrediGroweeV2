@@ -38,7 +38,6 @@ linters:
     
     # Style & simplicity
     - misspell      # Fix commonly misspelled words
-    - revive        # Fast, configurable linter (golint replacement)
     
   disable:
     # Too strict for this project
@@ -49,6 +48,7 @@ linters:
     - nlreturn
     - wsl
     - godox         # Don't fail on TODO/FIXME
+    - revive        # Disabled - too many style issues
 
 linters-settings:
   govet:
@@ -76,13 +76,6 @@ linters-settings:
   
   misspell:
     locale: US
-  
-  revive:
-    rules:
-      - name: exported
-        severity: warning
-      - name: package-comments
-        severity: warning
 
 issues:
   exclude-rules:

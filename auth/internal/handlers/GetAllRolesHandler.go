@@ -28,5 +28,5 @@ func (h *GetAllRolesHandler) Handle(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	rw.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(rw).Encode(roles)
+	_ = json.NewEncoder(rw).Encode(roles)
 }

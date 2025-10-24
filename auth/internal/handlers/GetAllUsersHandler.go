@@ -28,5 +28,5 @@ func (h *GetAllUsersHandler) Handle(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	rw.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(rw).Encode(users)
+	_ = json.NewEncoder(rw).Encode(users)
 }

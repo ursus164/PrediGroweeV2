@@ -1,3 +1,4 @@
+// Package models defines data structures and types used throughout the authentication service.
 package models
 
 import (

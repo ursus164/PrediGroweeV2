@@ -1,3 +1,4 @@
+// Package handlers contains HTTP request handlers for the authentication service.
 package handlers
 
 import (
@@ -21,12 +22,12 @@ func NewAdminGetUserHandler(storage storage.Store, logger *zap.Logger) *AdminGet
 }
 
 func (h *AdminGetUserHandler) Handle(w http.ResponseWriter, r *http.Request) {
-	userId, err := strconv.Atoi(r.PathValue("id"))
+	userID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid user id", http.StatusBadRequest)
 		return
 	}
-	user, err := h.storage.GetUserById(userId, false)
+	user, err := h.storage.GetUserById(userID, false)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
