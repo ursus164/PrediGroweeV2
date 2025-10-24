@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -35,14 +36,14 @@ func (h *ApprovalHandler) Approve(w http.ResponseWriter, r *http.Request) {
 		b, _ := json.Marshal(payload)
 
 		authBase := os.Getenv("AUTH_BASE_URL")
-		if authBase == "" {
-			authBase = "http://auth:8080"
-		}
-		req, err := http.NewRequest("POST", authBase+"/auth/notify-approved", bytes.NewReader(b))
-		if err != nil {
-			h.logger.Warn("notify-approved: build req failed", zap.Error(err))
-			return
-		}
+	if authBase == "" {
+		authBase = "http://auth:8080"
+	}
+	req, err := http.NewRequestWithContext(context.Background(), "POST", authBase+"/auth/notify-approved", bytes.NewReader(b))
+	if err != nil {
+		h.logger.Warn("notify-approved: build req failed", zap.Error(err))
+		return
+	}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-Internal-Api-Key", os.Getenv("INTERNAL_API_KEY"))
 
@@ -71,7 +72,7 @@ func (h *ApprovalHandler) Unapprove(w http.ResponseWriter, r *http.Request) {
     http.Error(w, "DB error", http.StatusInternalServerError); return
   }
   w.WriteHeader(http.StatusOK)
-  w.Write([]byte(`{"status":"ok"}`))
+  _, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
 func (h *ApprovalHandler) GetApproved(w http.ResponseWriter, _ *http.Request) {

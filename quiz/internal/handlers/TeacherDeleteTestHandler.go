@@ -2,6 +2,7 @@ package handlers
 
 import (
     "database/sql"
+    "errors"
     "go.uber.org/zap"
     "net/http"
     "quiz/internal/storage"
@@ -33,7 +34,7 @@ func (h *TeacherDeleteTestHandler) Handle(rw http.ResponseWriter, r *http.Reques
     }
 
     if err := h.storage.DeleteTest(id); err != nil {
-        if err == sql.ErrNoRows {
+        if errors.Is(err, sql.ErrNoRows) {
             http.Error(rw, "not found", http.StatusNotFound)
             return
         }

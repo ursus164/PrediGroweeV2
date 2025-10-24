@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"github.com/lib/pq"
@@ -119,7 +120,7 @@ func NewPostgresStorage(db *sql.DB, logger *zap.Logger) *PostgresStorage {
 }
 
 func (s *PostgresStorage) Ping() error {
-	return s.db.Ping()
+	return s.db.PingContext(context.Background())
 }
 
 func (s *PostgresStorage) Close() error {
@@ -141,7 +142,7 @@ func (s *PostgresStorage) CreateQuizSession(session models.QuizSession) (models.
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
         RETURNING id, created_at, updated_at`
 
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(context.Background(),
 		query,
 		session.UserID,
 		session.Status,
@@ -170,7 +171,7 @@ func (s *PostgresStorage) GetQuizSessionByID(id int) (models.QuizSession, error)
 	var testIDNull sql.NullInt64
 	var testCodeNull sql.NullString
 
-	err := s.db.QueryRow(query, id).Scan(
+	err := s.db.QueryRowContext(context.Background(), query, id).Scan(
 		&session.ID,
 		&session.UserID,
 		&session.Status,
@@ -216,7 +217,7 @@ func (s *PostgresStorage) UpdateQuizSession(session models.QuizSession) error {
                updated_at = NOW()
          WHERE id = $8`
 
-	_, err := s.db.Exec(
+	_, err := s.db.ExecContext(context.Background(),
 		query,
 		session.Status,
 		session.Mode,
@@ -238,11 +239,13 @@ func (s *PostgresStorage) GetUserActiveQuizSessions(userID int) ([]models.QuizSe
         WHERE user_id = $1 and status != 'finished'
         ORDER BY created_at DESC`
 
-	rows, err := s.db.Query(query, userID)
+	rows, err := s.db.QueryContext(context.Background(), query, userID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var sessions []models.QuizSession
 	for rows.Next() {
@@ -280,7 +283,7 @@ func (s *PostgresStorage) GetUserLastQuizSession(userID int) (*models.QuizSessio
 	var testIDNull sql.NullInt64
 	var testCodeNull sql.NullString
 
-	err := s.db.QueryRow(query, userID).Scan(
+	err := s.db.QueryRowContext(context.Background(), query, userID).Scan(
 		&session.ID,
 		&session.UserID,
 		&session.Status,
@@ -331,7 +334,7 @@ func (s *PostgresStorage) GetQuestionByID(id int) (models.Question, error) {
         WHERE q.id = $1`
 
 	var question models.Question
-	err := s.db.QueryRow(query, id).Scan(
+	err := s.db.QueryRowContext(context.Background(), query, id).Scan(
 		&question.ID,
 		&question.Question,
 		&question.PredictionAge,
@@ -366,10 +369,13 @@ func (s *PostgresStorage) GetQuestionOptions(id int) ([]string, error) {
 			JOIN question_options qo on o.id = qo.option_id
 			WHERE qo.question_id = $1 ORDER BY o.id`
 
-	rows, err := s.db.Query(query, id)
+	rows, err := s.db.QueryContext(context.Background(), query, id)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		_ = rows.Close()
+	}()
 	var options []string
 	for rows.Next() {
 		var option string
@@ -390,7 +396,7 @@ func (s *PostgresStorage) GetQuestionCorrectOption(id int) (string, error) {
 			WHERE qo.question_id = $1 and qo.is_correct = true`
 
 	var option string
-	err := s.db.QueryRow(query, id).Scan(&option)
+	err := s.db.QueryRowContext(context.Background(), query, id).Scan(&option)
 	return option, err
 }
 
@@ -402,7 +408,7 @@ func (s *PostgresStorage) GetAllQuestions() ([]models.Question, error) {
 		  JOIN cases c ON q.case_id = c.id
 		 ORDER BY q.id`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -435,7 +441,12 @@ func (s *PostgresStorage) GetAllQuestions() ([]models.Question, error) {
 		question.Correct = &correct
 		questions = append(questions, question)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return questions, nil
 }
 
@@ -449,7 +460,7 @@ func (s *PostgresStorage) GetAllOptions() ([]models.Option, error) {
 		      left join public.question_options qo on o.id = qo.option_id
 				group by o.id, o.option ORDER BY o.id`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -461,6 +472,12 @@ func (s *PostgresStorage) GetAllOptions() ([]models.Option, error) {
 			return nil, err
 		}
 		options = append(options, option)
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return options, nil
 }
@@ -475,7 +492,7 @@ func (s *PostgresStorage) GetGroupQuestionsIDsRandomOrder(groupNumber int) ([]in
 		WHERE group_number = $1
 		order by random()`
 
-	rows, err := s.db.Query(query, groupNumber)
+	rows, err := s.db.QueryContext(context.Background(), query, groupNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -488,14 +505,19 @@ func (s *PostgresStorage) GetGroupQuestionsIDsRandomOrder(groupNumber int) ([]in
 		}
 		questions = append(questions, questionID)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return questions, nil
 }
 
 func (s *PostgresStorage) GetNextQuestionGroupID(currentGroup int) (int, error) {
 	if currentGroup == 0 {
 		var g int
-		err := s.db.QueryRow(`
+		err := s.db.QueryRowContext(context.Background(), `
 			SELECT group_number
 			  FROM questions
 			 GROUP BY group_number
@@ -506,7 +528,7 @@ func (s *PostgresStorage) GetNextQuestionGroupID(currentGroup int) (int, error) 
 	}
 
 	var g int
-	err := s.db.QueryRow(`
+	err := s.db.QueryRowContext(context.Background(), `
 		SELECT group_number
 		  FROM questions
 		 WHERE group_number <> $1
@@ -527,7 +549,7 @@ func (s *PostgresStorage) CreateQuestion(payload models.QuestionPayload) (models
         VALUES ($1, $2, $3)
         RETURNING id`
 
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(context.Background(),
 		query,
 		payload.Question,
 		payload.PredictionAge,
@@ -543,7 +565,7 @@ func (s *PostgresStorage) UpdateQuestionByID(questionID int, payload models.Ques
            SET question = $1, prediction_age = $2, case_id = $3, group_number = $5
          WHERE id = $4`
 
-	_, err := s.db.Exec(
+	_, err := s.db.ExecContext(context.Background(),
 		query,
 		payload.Question,
 		payload.PredictionAge,
@@ -558,28 +580,30 @@ func (s *PostgresStorage) UpdateQuestionByID(questionID int, payload models.Ques
 
 func (s *PostgresStorage) UpdateQuestionCorrectOption(questionID int, option string) error {
 	var newCorrectID int
-	err := s.db.QueryRow("SELECT id FROM options WHERE option = $1", option).Scan(&newCorrectID)
+	err := s.db.QueryRowContext(context.Background(), "SELECT id FROM options WHERE option = $1", option).Scan(&newCorrectID)
 	if err != nil {
 		return err
 	}
-	tx, err := s.db.Begin()
+	tx, err := s.db.BeginTx(context.Background(), nil)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback()
+	}()
 
 	// Reset all options to false for this question
-	if _, err := tx.Exec(`
-        UPDATE question_options 
-           SET is_correct = false 
+	if _, err := tx.ExecContext(context.Background(), `
+        UPDATE question_options
+           SET is_correct = false
          WHERE question_id = $1`, questionID); err != nil {
 		return fmt.Errorf("reset options: %w", err)
 	}
 
 	// Set new correct option
-	if _, err := tx.Exec(`
-        UPDATE question_options 
-           SET is_correct = true 
+	if _, err := tx.ExecContext(context.Background(), `
+        UPDATE question_options
+           SET is_correct = true
          WHERE question_id = $1 AND option_id = $2`,
 		questionID, newCorrectID); err != nil {
 		return fmt.Errorf("update correct option: %w", err)
@@ -590,13 +614,13 @@ func (s *PostgresStorage) UpdateQuestionCorrectOption(questionID int, option str
 
 func (s *PostgresStorage) DeleteQuestionByID(id int) error {
 	query := "DELETE FROM questions WHERE id = $1"
-	_, err := s.db.Exec(query, id)
+	_, err := s.db.ExecContext(context.Background(), query, id)
 	return err
 }
 
 func (s *PostgresStorage) CountQuestions() (int, error) {
 	var count int
-	err := s.db.QueryRow("SELECT COUNT(*) FROM questions").Scan(&count)
+	err := s.db.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM questions").Scan(&count)
 	return count, err
 }
 
@@ -606,7 +630,7 @@ func (s *PostgresStorage) CreateCase(newCase models.Case) (models.Case, error) {
         VALUES ($1, $2, $3, $4)
         RETURNING id`
 
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(context.Background(),
 		query,
 		newCase.Code,
 		newCase.Gender,
@@ -623,7 +647,7 @@ func (s *PostgresStorage) UpdateCase(updatedCase models.Case) (models.Case, erro
            SET code = $1, patient_gender = $2, age1 = $3, age2 = $4
          WHERE id = $5`
 
-	_, err := s.db.Exec(
+	_, err := s.db.ExecContext(context.Background(),
 		query,
 		updatedCase.Code,
 		updatedCase.Gender,
@@ -636,20 +660,20 @@ func (s *PostgresStorage) UpdateCase(updatedCase models.Case) (models.Case, erro
 }
 
 func (s *PostgresStorage) DeleteCaseWithParameters(id int) error {
-	tx, err := s.db.Begin()
+	tx, err := s.db.BeginTx(context.Background(), nil)
 	if err != nil {
 		return err
 	}
 
-	_, err = tx.Exec("DELETE FROM case_parameters WHERE case_id = $1", id)
+	_, err = tx.ExecContext(context.Background(), "DELETE FROM case_parameters WHERE case_id = $1", id)
 	if err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return err
 	}
 
-	_, err = tx.Exec("DELETE FROM cases WHERE id = $1", id)
+	_, err = tx.ExecContext(context.Background(), "DELETE FROM cases WHERE id = $1", id)
 	if err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return err
 	}
 	return tx.Commit()
@@ -661,11 +685,13 @@ func (s *PostgresStorage) GetAllCases() ([]models.Case, error) {
           FROM cases
          ORDER BY id`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var cases []models.Case
 	for rows.Next() {
@@ -699,7 +725,7 @@ func (s *PostgresStorage) GetCaseByID(id int) (models.Case, error) {
          WHERE id=$1`
 
 	var c models.Case
-	err := s.db.QueryRow(query, id).Scan(
+	err := s.db.QueryRowContext(context.Background(), query, id).Scan(
 		&c.ID,
 		&c.Code,
 		&c.Gender,
@@ -721,7 +747,7 @@ func (s *PostgresStorage) CreateCaseParameter(caseID int, parameter models.Param
 		VALUES ($1, $2, $3, $4)
 		RETURNING parameter_id, value_1, value_2`
 
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(context.Background(),
 		query,
 		caseID,
 		parameter.ParameterID,
@@ -742,7 +768,7 @@ func (s *PostgresStorage) CreateParameter(parameter models.Parameter) (models.Pa
         VALUES ($1, $2, $3)
         RETURNING id`
 
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(context.Background(),
 		query,
 		parameter.Name,
 		parameter.Description,
@@ -758,7 +784,7 @@ func (s *PostgresStorage) UpdateParameter(parameter models.Parameter) error {
            SET name = $1, description = $2, reference_value = $3
          WHERE id = $4`
 
-	_, err := s.db.Exec(
+	_, err := s.db.ExecContext(context.Background(),
 		query,
 		parameter.Name,
 		parameter.Description,
@@ -770,17 +796,19 @@ func (s *PostgresStorage) UpdateParameter(parameter models.Parameter) error {
 }
 
 func (s *PostgresStorage) DeleteParameter(id int) error {
-	tx, err := s.db.Begin()
+	tx, err := s.db.BeginTx(context.Background(), nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback()
+	}()
 
-	if _, err := tx.Exec(`DELETE FROM case_parameters WHERE parameter_id = $1`, id); err != nil {
+	if _, err := tx.ExecContext(context.Background(), `DELETE FROM case_parameters WHERE parameter_id = $1`, id); err != nil {
 		return err
 	}
 
-	res, err := tx.Exec(`DELETE FROM parameters WHERE id = $1`, id)
+	res, err := tx.ExecContext(context.Background(), `DELETE FROM parameters WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}
@@ -798,7 +826,7 @@ func (s *PostgresStorage) GetParameterByID(id int) (models.Parameter, error) {
 		 WHERE id = $1`
 
 	var p models.Parameter
-	err := s.db.QueryRow(query, id).Scan(
+	err := s.db.QueryRowContext(context.Background(), query, id).Scan(
 		&p.ID,
 		&p.Name,
 		&p.Description,
@@ -813,11 +841,13 @@ func (s *PostgresStorage) GetAllParameters() ([]models.Parameter, error) {
           FROM parameters
          ORDER BY display_order, id`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var parameters []models.Parameter
 	for rows.Next() {
@@ -847,11 +877,13 @@ func (s *PostgresStorage) getCaseParameters(caseID int) ([]models.Parameter, []m
 		join case_parameters cp on c.id = cp.case_id
 		join parameters p on cp.parameter_id = p.id
 		where c.id=$1 ORDER BY p.display_order, p.id`
-	rows, err := s.db.Query(query, caseID)
+	rows, err := s.db.QueryContext(context.Background(), query, caseID)
 	if err != nil {
 		return nil, nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 	parameters := make([]models.Parameter, 0)
 	parameterValues := make([]models.ParameterValue, 0)
 	for rows.Next() {
@@ -865,34 +897,41 @@ func (s *PostgresStorage) getCaseParameters(caseID int) ([]models.Parameter, []m
 		parameters = append(parameters, p)
 		parameterValues = append(parameterValues, pv)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
 	return parameters, parameterValues, nil
 }
 
 func (s *PostgresStorage) UpdateCaseParameters(caseID int, parameters []models.Parameter, values []models.ParameterValue) error {
-	tx, err := s.db.Begin()
+	tx, err := s.db.BeginTx(context.Background(), nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback()
+	}()
 
 	// Delete existing parameters for this case
-	_, err = tx.Exec("DELETE FROM case_parameters WHERE case_id = $1", caseID)
+	_, err = tx.ExecContext(context.Background(), "DELETE FROM case_parameters WHERE case_id = $1", caseID)
 	if err != nil {
 		return err
 	}
 
 	// Insert new parameters
-	stmt, err := tx.Prepare(`
-        INSERT INTO case_parameters (case_id, parameter_id, value_1, value_2, value_3) 
+	stmt, err := tx.PrepareContext(context.Background(), `
+        INSERT INTO case_parameters (case_id, parameter_id, value_1, value_2, value_3)
         VALUES ($1, $2, $3, $4, $5)
     `)
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	defer func() {
+		_ = stmt.Close()
+	}()
 
 	for i := range parameters {
-		_, err = stmt.Exec(
+		_, err = stmt.ExecContext(context.Background(),
 			caseID,
 			parameters[i].ID,
 			values[i].Value1,
@@ -917,7 +956,7 @@ func (s *PostgresStorage) CreateOption(option models.Option) (models.Option, err
 		VALUES ($1)
 		RETURNING id`
 
-	err := s.db.QueryRow(query, option.Option).Scan(&option.ID)
+	err := s.db.QueryRowContext(context.Background(), query, option.Option).Scan(&option.ID)
 	return option, err
 }
 
@@ -927,31 +966,35 @@ func (s *PostgresStorage) UpdateOption(id int, option models.Option) error {
 		   SET option = $1
 		 WHERE id = $2`
 
-	_, err := s.db.Exec(query, option.Option, id)
+	_, err := s.db.ExecContext(context.Background(), query, option.Option, id)
 	return err
 }
 
 func (s *PostgresStorage) DeleteOption(id int) error {
 	query := "DELETE FROM options WHERE id = $1"
-	_, err := s.db.Exec(query, id)
+	_, err := s.db.ExecContext(context.Background(), query, id)
 	return err
 }
 
 func (s *PostgresStorage) UpdateParametersOrder(params []models.Parameter) error {
-	tx, err := s.db.Begin()
+	tx, err := s.db.BeginTx(context.Background(), nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback()
+	}()
 
-	stmt, err := tx.Prepare(`UPDATE parameters SET display_order = $1 WHERE id = $2`)
+	stmt, err := tx.PrepareContext(context.Background(), `UPDATE parameters SET display_order = $1 WHERE id = $2`)
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	defer func() {
+		_ = stmt.Close()
+	}()
 
 	for _, param := range params {
-		_, err = stmt.Exec(param.Order, param.ID)
+		_, err = stmt.ExecContext(context.Background(), param.Order, param.ID)
 		if err != nil {
 			return err
 		}
@@ -966,7 +1009,7 @@ func (s *PostgresStorage) UpdateParametersOrder(params []models.Parameter) error
 
 func (s *PostgresStorage) GetTimeLimit() (int, error) {
 	var timeLimitStr string
-	err := s.db.QueryRow("SELECT value FROM settings WHERE name = 'time_limit'").Scan(&timeLimitStr)
+	err := s.db.QueryRowContext(context.Background(), "SELECT value FROM settings WHERE name = 'time_limit'").Scan(&timeLimitStr)
 	if err != nil {
 		return 0, err
 	}
@@ -980,7 +1023,7 @@ func (s *PostgresStorage) SaveSettings(name string, value string) error {
 		VALUES ($1, $2)
 		ON CONFLICT (name) DO UPDATE SET value = $2`
 
-	_, err := s.db.Exec(query, name, value)
+	_, err := s.db.ExecContext(context.Background(), query, name, value)
 	return err
 }
 
@@ -989,11 +1032,13 @@ func (s *PostgresStorage) GetSettings() ([]models.Settings, error) {
 		SELECT name, value
 		  FROM settings`
 
-	rows, err := s.db.Query(query)
+	rows, err := s.db.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var settings []models.Settings
 	for rows.Next() {
@@ -1004,16 +1049,19 @@ func (s *PostgresStorage) GetSettings() ([]models.Settings, error) {
 		}
 		settings = append(settings, setting)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return settings, nil
 }
 
 func (s *PostgresStorage) GetSecuritySettings() (string, int, error) {
 	var mode, hrsStr string
-	if err := s.db.QueryRow("SELECT value FROM settings WHERE name='quiz_security_mode'").Scan(&mode); err != nil {
+	if err := s.db.QueryRowContext(context.Background(), "SELECT value FROM settings WHERE name='quiz_security_mode'").Scan(&mode); err != nil {
 		mode = "cooldown"
 	}
-	if err := s.db.QueryRow("SELECT value FROM settings WHERE name='quiz_cooldown_hours'").Scan(&hrsStr); err != nil {
+	if err := s.db.QueryRowContext(context.Background(), "SELECT value FROM settings WHERE name='quiz_cooldown_hours'").Scan(&hrsStr); err != nil {
 		hrsStr = "24"
 	}
 	h, err := strconv.Atoi(hrsStr)
@@ -1025,7 +1073,7 @@ func (s *PostgresStorage) GetSecuritySettings() (string, int, error) {
 
 func (s *PostgresStorage) IsUserApproved(userID int) (bool, error) {
 	var ok bool
-	err := s.db.QueryRow("SELECT approved FROM quiz_user_access WHERE user_id=$1", userID).Scan(&ok)
+	err := s.db.QueryRowContext(context.Background(), "SELECT approved FROM quiz_user_access WHERE user_id=$1", userID).Scan(&ok)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}
@@ -1034,25 +1082,25 @@ func (s *PostgresStorage) IsUserApproved(userID int) (bool, error) {
 
 func (s *PostgresStorage) UpsertAndGetRegisteredAt(userID int) (time.Time, error) {
 	var t time.Time
-	err := s.db.QueryRow("SELECT registered_at FROM quiz_user_registry WHERE user_id=$1", userID).Scan(&t)
+	err := s.db.QueryRowContext(context.Background(), "SELECT registered_at FROM quiz_user_registry WHERE user_id=$1", userID).Scan(&t)
 	if err == nil {
 		return t, nil
 	}
-	err = s.db.QueryRow(`
+	err = s.db.QueryRowContext(context.Background(), `
     INSERT INTO quiz_user_registry(user_id, registered_at, source)
     VALUES($1, NOW(), 'first_seen')
     ON CONFLICT (user_id) DO NOTHING
     RETURNING registered_at
   `, userID).Scan(&t)
 	if err == sql.ErrNoRows {
-		_ = s.db.QueryRow("SELECT registered_at FROM quiz_user_registry WHERE user_id=$1").Scan(&t)
+		_ = s.db.QueryRowContext(context.Background(), "SELECT registered_at FROM quiz_user_registry WHERE user_id=$1").Scan(&t)
 		return t, nil
 	}
 	return t, err
 }
 
 func (s *PostgresStorage) ApproveUser(userID int, adminID *int) error {
-	_, err := s.db.Exec(`
+	_, err := s.db.ExecContext(context.Background(), `
     INSERT INTO quiz_user_access(user_id, approved, approved_by, approved_at)
     VALUES ($1, TRUE, $2, NOW())
     ON CONFLICT (user_id)
@@ -1062,7 +1110,7 @@ func (s *PostgresStorage) ApproveUser(userID int, adminID *int) error {
 }
 
 func (s *PostgresStorage) UnapproveUser(userID int, adminID *int) error {
-  _, err := s.db.Exec(`
+  _, err := s.db.ExecContext(context.Background(), `
     INSERT INTO quiz_user_access(user_id, approved, approved_by, approved_at, created_at)
     VALUES ($1, FALSE, $2, NOW(), NOW())
     ON CONFLICT (user_id)
@@ -1072,11 +1120,13 @@ func (s *PostgresStorage) UnapproveUser(userID int, adminID *int) error {
 }
 
 func (s *PostgresStorage) GetApprovedUserIDs() ([]int, error) {
-	rows, err := s.db.Query(`SELECT user_id FROM quiz_user_access WHERE approved = true`)
+	rows, err := s.db.QueryContext(context.Background(), `SELECT user_id FROM quiz_user_access WHERE approved = true`)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var ids []int
 	for rows.Next() {
@@ -1094,7 +1144,7 @@ func (s *PostgresStorage) GetApprovedUserIDs() ([]int, error) {
 //
 
 func (s *PostgresStorage) CreateCaseReport(caseID int, userID int, description string) error {
-	_, err := s.db.Exec(`
+	_, err := s.db.ExecContext(context.Background(), `
 		INSERT INTO case_reports(case_id, user_id, description)
 		VALUES ($1, $2, $3)
 	`, caseID, userID, description)
@@ -1102,7 +1152,7 @@ func (s *PostgresStorage) CreateCaseReport(caseID int, userID int, description s
 }
 
 func (s *PostgresStorage) ListCaseReports() ([]models.CaseReport, error) {
-	rows, err := s.db.Query(`
+	rows, err := s.db.QueryContext(context.Background(), `
 		SELECT r.id, r.case_id, c.code, r.user_id, r.description, r.created_at,
          r.admin_note, r.admin_note_updated_at, r.admin_note_updated_by
          FROM case_reports r
@@ -1112,7 +1162,9 @@ func (s *PostgresStorage) ListCaseReports() ([]models.CaseReport, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	out := make([]models.CaseReport, 0)
 
@@ -1127,12 +1179,12 @@ func (s *PostgresStorage) ListCaseReports() ([]models.CaseReport, error) {
 }
 
 func (s *PostgresStorage) DeleteCaseReport(id int) error {
-	_, err := s.db.Exec(`DELETE FROM case_reports WHERE id = $1`, id)
+	_, err := s.db.ExecContext(context.Background(), `DELETE FROM case_reports WHERE id = $1`, id)
 	return err
 }
 
 func (s *PostgresStorage) UpdateCaseReportNote(id int, note *string, adminID *int) error {
-	_, err := s.db.Exec(`
+	_, err := s.db.ExecContext(context.Background(), `
     UPDATE case_reports
        SET admin_note = $2,
            admin_note_updated_at = NOW(),
@@ -1144,7 +1196,7 @@ func (s *PostgresStorage) UpdateCaseReportNote(id int, note *string, adminID *in
 
 func (s *PostgresStorage) CountReportsWithoutNote() (int, error) {
 	var n int
-	err := s.db.QueryRow(`
+	err := s.db.QueryRowContext(context.Background(), `
     SELECT COUNT(*)
       FROM case_reports
      WHERE admin_note IS NULL OR btrim(admin_note) = ''
@@ -1165,11 +1217,13 @@ func (s *PostgresStorage) GetCaseParametersV3(caseID int) ([]models.ParameterVal
         WHERE cp.case_id = $1
         ORDER BY p.display_order, p.id
     `
-	rows, err := s.db.Query(query, caseID)
+	rows, err := s.db.QueryContext(context.Background(), query, caseID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	vals := make([]models.ParameterValue, 0)
 	for rows.Next() {
@@ -1184,7 +1238,7 @@ func (s *PostgresStorage) GetCaseParametersV3(caseID int) ([]models.ParameterVal
 
 func (s *PostgresStorage) GetCaseAge3(caseID int) (int, error) {
 	var age3 sql.NullInt64
-	err := s.db.QueryRow(`SELECT age3 FROM cases WHERE id = $1`, caseID).Scan(&age3)
+	err := s.db.QueryRowContext(context.Background(), `SELECT age3 FROM cases WHERE id = $1`, caseID).Scan(&age3)
 	if err != nil {
 		return 0, err
 	}
@@ -1199,7 +1253,7 @@ func (s *PostgresStorage) GetCaseAge3(caseID int) (int, error) {
 //
 
 func (s *PostgresStorage) CreateTest(t models.Test, questionIDs []int) (models.Test, error) {
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(context.Background(),
 		`INSERT INTO tests(code, name, created_by) VALUES ($1,$2,$3)
          RETURNING id, created_at`,
 		t.Code, t.Name, t.CreatedBy,
@@ -1208,20 +1262,22 @@ func (s *PostgresStorage) CreateTest(t models.Test, questionIDs []int) (models.T
 		return t, err
 	}
 
-	tx, err := s.db.Begin()
+	tx, err := s.db.BeginTx(context.Background(), nil)
 	if err != nil {
 		return t, err
 	}
-	stmt, err := tx.Prepare(`INSERT INTO test_questions(test_id, question_id, sort_order) VALUES ($1,$2,$3)`)
+	stmt, err := tx.PrepareContext(context.Background(), `INSERT INTO test_questions(test_id, question_id, sort_order) VALUES ($1,$2,$3)`)
 	if err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return t, err
 	}
-	defer stmt.Close()
+	defer func() {
+		_ = stmt.Close()
+	}()
 
 	for i, qid := range questionIDs {
-		if _, err := stmt.Exec(t.ID, qid, i); err != nil {
-			tx.Rollback()
+		if _, err := stmt.ExecContext(context.Background(), t.ID, qid, i); err != nil {
+			_ = tx.Rollback()
 			return t, err
 		}
 	}
@@ -1233,7 +1289,7 @@ func (s *PostgresStorage) CreateTest(t models.Test, questionIDs []int) (models.T
 
 func (s *PostgresStorage) GetTestByCode(code string) (*models.Test, error) {
 	var t models.Test
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(context.Background(),
 		`SELECT id, code, name, created_by, created_at FROM tests WHERE code=$1`,
 		code,
 	).Scan(&t.ID, &t.Code, &t.Name, &t.CreatedBy, &t.CreatedAt)
@@ -1247,14 +1303,16 @@ func (s *PostgresStorage) GetTestByCode(code string) (*models.Test, error) {
 }
 
 func (s *PostgresStorage) GetTestQuestionIDsOrdered(testID int) ([]int, error) {
-	rows, err := s.db.Query(
+	rows, err := s.db.QueryContext(context.Background(),
 		`SELECT question_id FROM test_questions WHERE test_id=$1 ORDER BY sort_order`,
 		testID,
 	)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	out := make([]int, 0)
 	for rows.Next() {
@@ -1268,7 +1326,7 @@ func (s *PostgresStorage) GetTestQuestionIDsOrdered(testID int) ([]int, error) {
 }
 
 func (s *PostgresStorage) ListTestsByOwner(userID int) ([]models.Test, error) {
-	rows, err := s.db.Query(
+	rows, err := s.db.QueryContext(context.Background(),
 		`SELECT id, code, name, created_by, created_at
 		   FROM tests
 		  WHERE created_by = $1
@@ -1278,7 +1336,9 @@ func (s *PostgresStorage) ListTestsByOwner(userID int) ([]models.Test, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var out []models.Test
 	for rows.Next() {
@@ -1292,7 +1352,7 @@ func (s *PostgresStorage) ListTestsByOwner(userID int) ([]models.Test, error) {
 }
 
 func (s *PostgresStorage) ListSessionsByTestID(testID int) ([]models.QuizSession, error) {
-	rows, err := s.db.Query(`
+	rows, err := s.db.QueryContext(context.Background(), `
 		SELECT id, user_id, status, mode, current_question, current_group, group_order,
 		       created_at, updated_at, finished_at, question_requested_time, test_id, test_code
 		  FROM quiz_sessions
@@ -1302,7 +1362,9 @@ func (s *PostgresStorage) ListSessionsByTestID(testID int) ([]models.QuizSession
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	out := make([]models.QuizSession, 0)
 	for rows.Next() {
@@ -1341,7 +1403,7 @@ func (s *PostgresStorage) ListSessionsByTestID(testID int) ([]models.QuizSession
 
 func (s *PostgresStorage) GetTestByID(id int) (*models.Test, error) {
 	var t models.Test
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(context.Background(),
 		`SELECT id, code, name, created_by, created_at FROM tests WHERE id=$1`,
 		id,
 	).Scan(&t.ID, &t.Code, &t.Name, &t.CreatedBy, &t.CreatedAt)
@@ -1355,16 +1417,18 @@ func (s *PostgresStorage) GetTestByID(id int) (*models.Test, error) {
 }
 
 func (s *PostgresStorage) DeleteTest(id int) error {
-	tx, err := s.db.Begin()
+	tx, err := s.db.BeginTx(context.Background(), nil)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback()
+	}()
 
-	if _, err := tx.Exec(`DELETE FROM test_questions WHERE test_id=$1`, id); err != nil {
+	if _, err := tx.ExecContext(context.Background(), `DELETE FROM test_questions WHERE test_id=$1`, id); err != nil {
 		return err
 	}
-	res, err := tx.Exec(`DELETE FROM tests WHERE id=$1`, id)
+	res, err := tx.ExecContext(context.Background(), `DELETE FROM tests WHERE id=$1`, id)
 	if err != nil {
 		return err
 	}
@@ -1375,7 +1439,7 @@ func (s *PostgresStorage) DeleteTest(id int) error {
 }
 
 func (s *PostgresStorage) InsertDifficultyVote(questionID int, userID int, level models.DifficultyLevel) error {
-    _, err := s.db.Exec(`
+    _, err := s.db.ExecContext(context.Background(), `
         INSERT INTO question_difficulty_votes (question_id, user_id, difficulty)
         VALUES ($1, $2, $3::difficulty_level)
     `, questionID, userID, string(level))
@@ -1384,7 +1448,7 @@ func (s *PostgresStorage) InsertDifficultyVote(questionID int, userID int, level
 
 func (s *PostgresStorage) GetMyDifficultyVote(questionID int, userID int) (*models.QuestionDifficultyVote, error) {
     var v models.QuestionDifficultyVote
-    err := s.db.QueryRow(`
+    err := s.db.QueryRowContext(context.Background(), `
         SELECT question_id, user_id, difficulty, created_at
           FROM question_difficulty_votes
          WHERE question_id = $1 AND user_id = $2
@@ -1396,7 +1460,7 @@ func (s *PostgresStorage) GetMyDifficultyVote(questionID int, userID int) (*mode
 
 func (s *PostgresStorage) GetDifficultySummary(questionID int) (*models.QuestionDifficultySummary, error) {
     var out models.QuestionDifficultySummary
-    err := s.db.QueryRow(`
+    err := s.db.QueryRowContext(context.Background(), `
         SELECT question_id, total_votes, hard_votes, easy_votes, hard_pct
           FROM question_difficulty_summary
          WHERE question_id = $1
@@ -1410,7 +1474,7 @@ func (s *PostgresStorage) GetDifficultySummaryBatch(ids []int) ([]models.Questio
   if len(ids) == 0 {
     return out, nil
   }
-  rows, err := s.db.Query(`
+  rows, err := s.db.QueryContext(context.Background(), `
     SELECT question_id, total_votes, hard_votes, easy_votes, hard_pct
       FROM question_difficulty_summary
      WHERE question_id = ANY($1)
@@ -1419,7 +1483,9 @@ func (s *PostgresStorage) GetDifficultySummaryBatch(ids []int) ([]models.Questio
   if err != nil {
     return nil, err
   }
-  defer rows.Close()
+  defer func() {
+		_ = rows.Close()
+	}()
 
   for rows.Next() {
     var r models.QuestionDifficultySummary
@@ -1445,7 +1511,7 @@ func (s *PostgresStorage) ListActiveSessions(cutoffMinutes int, limit int) ([]mo
 	if cutoffMinutes <= 0 { cutoffMinutes = 5 }
 	if limit <= 0 || limit > 500 { limit = 200 }
 
-	rows, err := s.db.Query(`
+	rows, err := s.db.QueryContext(context.Background(), `
 		SELECT id, user_id, status, mode, current_question, current_group, group_order,
 		       created_at, updated_at, finished_at, question_requested_time, test_id, test_code,
 		       COALESCE(question_requested_time, updated_at) AS last_seen
@@ -1456,7 +1522,9 @@ func (s *PostgresStorage) ListActiveSessions(cutoffMinutes int, limit int) ([]mo
 		 LIMIT $2
 	`, cutoffMinutes, limit)
 	if err != nil { return nil, err }
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	out := make([]models.ActiveSession, 0, limit)
 	for rows.Next() {
@@ -1485,7 +1553,7 @@ func (s *PostgresStorage) ListActiveSessions(cutoffMinutes int, limit int) ([]mo
 //favorites
 
 func (s *PostgresStorage) AddFavoriteCase(userID int, caseID int) error {
-	_, err := s.db.Exec(`
+	_, err := s.db.ExecContext(context.Background(), `
 		INSERT INTO user_favorites(user_id, case_id)
 		VALUES ($1, $2)
 		ON CONFLICT (user_id, case_id) DO NOTHING
@@ -1494,7 +1562,7 @@ func (s *PostgresStorage) AddFavoriteCase(userID int, caseID int) error {
 }
 
 func (s *PostgresStorage) RemoveFavoriteCase(userID int, caseID int) error {
-	_, err := s.db.Exec(`
+	_, err := s.db.ExecContext(context.Background(), `
 		DELETE FROM user_favorites
 		 WHERE user_id = $1 AND case_id = $2
 	`, userID, caseID)
@@ -1502,7 +1570,7 @@ func (s *PostgresStorage) RemoveFavoriteCase(userID int, caseID int) error {
 }
 
 func (s *PostgresStorage) ListFavoriteCases(userID int) ([]models.FavoriteCase, error) {
-    rows, err := s.db.Query(`
+    rows, err := s.db.QueryContext(context.Background(), `
         SELECT uf.created_at,
                c.id, c.code, c.patient_gender, c.age1, c.age2, c.age3,
                q.id AS question_id,
@@ -1519,7 +1587,9 @@ func (s *PostgresStorage) ListFavoriteCases(userID int) ([]models.FavoriteCase, 
     if err != nil {
         return nil, err
     }
-    defer rows.Close()
+    defer func() {
+		_ = rows.Close()
+	}()
 
     out := make([]models.FavoriteCase, 0)
     for rows.Next() {
@@ -1576,7 +1646,7 @@ func (s *PostgresStorage) ListFavoriteCases(userID int) ([]models.FavoriteCase, 
 
 
 func (s *PostgresStorage) UpdateFavoriteNote(userID int, caseID int, note *string) error {
-	_, err := s.db.Exec(`
+	_, err := s.db.ExecContext(context.Background(), `
 		UPDATE user_favorites
 		   SET note = $3::text,
 		       note_updated_at = CASE

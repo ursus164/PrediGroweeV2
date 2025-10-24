@@ -2,6 +2,7 @@ package clients
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"go.uber.org/zap"
@@ -33,7 +34,7 @@ func (c *AuthClient) VerifyAuthToken(token string) (models.UserData, error) {
 		return models.UserData{}, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", c.addr+"/verify", bytes.NewBuffer(jsonPayload))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", c.addr+"/verify", bytes.NewBuffer(jsonPayload))
 	if err != nil {
 		return models.UserData{}, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -46,7 +47,9 @@ func (c *AuthClient) VerifyAuthToken(token string) (models.UserData, error) {
 	if err != nil {
 		return models.UserData{}, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		c.logger.Error("unexpected status code", zap.Error(err), zap.Int("status_code", resp.StatusCode))

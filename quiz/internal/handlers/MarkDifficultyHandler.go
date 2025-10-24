@@ -2,6 +2,7 @@ package handlers
 
 import (
     "encoding/json"
+    "errors"
     "net/http"
     "strconv"
 
@@ -35,7 +36,8 @@ func (h *MarkDifficultyHandler) Handle(w http.ResponseWriter, r *http.Request) {
     }
 
     if err := h.store.InsertDifficultyVote(qID, userID, models.DifficultyLevel(req.Difficulty)); err != nil {
-        if pgErr, ok := err.(*pq.Error); ok && pgErr.Code == "23505" {
+        var pgErr *pq.Error
+        if errors.As(err, &pgErr) && pgErr.Code == "23505" {
             http.Error(w, "already voted", http.StatusConflict); return
         }
         h.logger.Error("insert diff vote failed", zap.Error(err))
