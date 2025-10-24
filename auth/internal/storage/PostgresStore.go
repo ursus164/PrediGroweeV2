@@ -152,7 +152,7 @@ func (p *PostgresStorage) GetAllUsers() ([]models.User, error) {
 
 func (p *PostgresStorage) UpdateUser(user *models.User) error {
 	query := `
-        UPDATE users 
+        UPDATE users
         SET first_name = $1, last_name = $2, email = $3, role = $4, pwd = $5, google_id = $6, verified=$7, updated_at = NOW()
         WHERE id = $8
     `
