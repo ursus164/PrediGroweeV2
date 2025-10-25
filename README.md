@@ -46,4 +46,34 @@ source ~/.bashrc
 ## Dokumentacja
 
 - [SECURITY-PIPELINE.md](./SECURITY-PIPELINE.md) - Pipeline bezpieczeństwa i skanowanie
+- [SECURITY_HARDENING.md](./SECURITY_HARDENING.md) - Docker security hardening
+- [monitoring/README.md](./monitoring/README.md) - **Monitoring i Security Logging (Prometheus, Grafana, Loki)**
+- [MONITORING_QUICKSTART.md](./MONITORING_QUICKSTART.md) - Szybki start monitoringu
 - [database-init/README.md](./database-init/README.md) - Inicjalizacja baz danych
+
+## Monitoring & Security Logging 📊
+
+Stack monitoringu zapewnia:
+- **Prometheus** - zbieranie metryk (CPU, RAM, błędy HTTP)
+- **Grafana** - wizualizacja i dashboardy (http://localhost:3002)
+- **Loki** - agregacja logów w czasie rzeczywistym
+- **Promtail** - automatyczne zbieranie logów z kontenerów
+- **Security monitoring** - śledzenie failed logins, 401/403, suspicious patterns
+
+### Szybki start monitoringu
+
+```bash
+# 1. Utwórz sieć
+docker network create predigroweev2_monitoring
+
+# 2. Uruchom monitoring
+docker-compose -f docker-compose.monitoring.yml up -d
+
+# 3. Uruchom aplikację
+docker-compose up -d
+
+# 4. Otwórz Grafana
+# http://localhost:3002 (admin/admin123)
+```
+
+Pełna dokumentacja: [monitoring/README.md](./monitoring/README.md)

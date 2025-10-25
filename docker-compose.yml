@@ -16,6 +16,9 @@ services:
     networks:
       - frontend_network
       - backend_network
+      - monitoring
+    labels:
+      logging: "promtail"
     # Security hardening
     cap_drop:
       - ALL
@@ -139,7 +142,10 @@ services:
       - auth_db
     networks:
       - backend_network
+      - monitoring
       - db_network
+    labels:
+      logging: "promtail"
     # Security hardening
     cap_drop:
       - ALL
@@ -178,7 +184,10 @@ services:
       - images_db
     networks:
       - backend_network
+      - monitoring
       - db_network
+    labels:
+      logging: "promtail"
     # Security hardening
     cap_drop:
       - ALL
@@ -216,7 +225,10 @@ services:
       - auth
     networks:
       - backend_network
+      - monitoring
       - db_network
+    labels:
+      logging: "promtail"
     # Security hardening
     cap_drop:
       - ALL
@@ -253,7 +265,10 @@ services:
         - auth
     networks:
       - backend_network
+      - monitoring
       - db_network
+    labels:
+      logging: "promtail"
     # Security hardening
     cap_drop:
       - ALL
@@ -283,6 +298,9 @@ services:
       - auth
     networks:
       - backend_network
+      - monitoring
+    labels:
+      logging: "promtail"
     # Security hardening
     cap_drop:
       - ALL
@@ -326,6 +344,9 @@ services:
     networks:
       - frontend_network
       - backend_network
+      - monitoring
+    labels:
+      logging: "promtail"
     # Security hardening
     cap_drop:
       - ALL
@@ -359,3 +380,7 @@ networks:
     driver: bridge
   db_network:
     driver: bridge
+  monitoring:
+    driver: bridge
+    external: true
+    name: predigroweev2_monitoring
