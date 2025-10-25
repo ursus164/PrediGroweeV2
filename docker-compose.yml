@@ -16,6 +16,29 @@ services:
     networks:
       - frontend_network
       - backend_network
+    # Security hardening
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - CHOWN
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /var/run:size=10M,mode=0755
+      - /var/cache/nginx:size=100M,mode=0755
+      - /var/log/nginx:size=50M,mode=0755
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
 
   # Postgres for Auth
   auth_db:
@@ -117,6 +140,22 @@ services:
     networks:
       - backend_network
       - db_network
+    # Security hardening
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   # Images microservice
   images:
@@ -140,6 +179,22 @@ services:
     networks:
       - backend_network
       - db_network
+    # Security hardening
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   # Quiz microservice
   quiz:
@@ -162,6 +217,22 @@ services:
     networks:
       - backend_network
       - db_network
+    # Security hardening
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   stats:
     build:
@@ -183,6 +254,22 @@ services:
     networks:
       - backend_network
       - db_network
+    # Security hardening
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
   admin:
     build:
       context: ./admin
@@ -196,6 +283,22 @@ services:
       - auth
     networks:
       - backend_network
+    # Security hardening
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
   frontend:
     build:
       context: ../PrediGroweeV2-UI
@@ -223,6 +326,23 @@ services:
     networks:
       - frontend_network
       - backend_network
+    # Security hardening
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=200M,mode=1777
+      - /app/.next:size=500M,mode=0755,uid=1001,gid=1001
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
 volumes:
   auth_db_data:
