@@ -1,128 +1,126 @@
 {
-  "dashboard": {
-    "title": "PrediGrowee Security Dashboard",
-    "tags": ["security", "monitoring"],
-    "timezone": "browser",
-    "panels": [
-      {
-        "id": 1,
-        "title": "Failed Authentication Attempts",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
-        "targets": [
-          {
-            "expr": "rate(auth_failed_attempts_total[5m])",
-            "legendFormat": "Failed Attempts/min"
-          }
-        ]
-      },
-      {
-        "id": 2,
-        "title": "HTTP Error Rates (4xx/5xx)",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
-        "targets": [
-          {
-            "expr": "sum(rate(container_http_requests_total{status_code=~\"4..\"}[5m]))",
-            "legendFormat": "4xx errors"
-          },
-          {
-            "expr": "sum(rate(container_http_requests_total{status_code=~\"5..\"}[5m]))",
-            "legendFormat": "5xx errors"
-          }
-        ]
-      },
-      {
-        "id": 3,
-        "title": "Container Resource Usage",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
-        "targets": [
-          {
-            "expr": "sum(rate(container_cpu_usage_seconds_total[5m])) by (name)",
-            "legendFormat": "{{name}}"
-          }
-        ]
-      },
-      {
-        "id": 4,
-        "title": "Memory Usage by Container",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
-        "targets": [
-          {
-            "expr": "sum(container_memory_usage_bytes) by (name) / 1024 / 1024",
-            "legendFormat": "{{name}} MB"
-          }
-        ]
-      },
-      {
-        "id": 5,
-        "title": "Recent Security Events",
-        "type": "logs",
-        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
-        "targets": [
-          {
-            "expr": "{service=~\"auth|admin\",alert=\"true\"}",
-            "refId": "A"
-          }
-        ],
-        "options": {
-          "showTime": true,
-          "wrapLogMessage": true
+  "title": "PrediGrowee Security Dashboard",
+  "tags": ["security", "monitoring"],
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Failed Authentication Attempts",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(auth_failed_attempts_total[5m])",
+          "legendFormat": "Failed Attempts/min"
         }
-      },
-      {
-        "id": 6,
-        "title": "Unauthorized Access Attempts",
-        "type": "stat",
-        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 24},
-        "targets": [
-          {
-            "expr": "sum(increase(http_requests_total{status_code=\"401\"}[1h]))"
-          }
-        ]
-      },
-      {
-        "id": 7,
-        "title": "Forbidden Access (403)",
-        "type": "stat",
-        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 24},
-        "targets": [
-          {
-            "expr": "sum(increase(http_requests_total{status_code=\"403\"}[1h]))"
-          }
-        ]
-      },
-      {
-        "id": 8,
-        "title": "Database Connection Errors",
-        "type": "stat",
-        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 24},
-        "targets": [
-          {
-            "expr": "sum(increase(db_connection_errors_total[1h]))"
-          }
-        ]
-      },
-      {
-        "id": 9,
-        "title": "Average Response Time",
-        "type": "stat",
-        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 24},
-        "targets": [
-          {
-            "expr": "avg(http_request_duration_seconds)"
-          }
-        ]
-      }
-    ],
-    "time": {
-      "from": "now-6h",
-      "to": "now"
+      ]
     },
-    "refresh": "30s",
-    "schemaVersion": 16,
-    "version": 1
-  }
+    {
+      "id": 2,
+      "title": "HTTP Error Rates (4xx/5xx)",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(container_http_requests_total{status_code=~\"4..\"}[5m]))",
+          "legendFormat": "4xx errors"
+        },
+        {
+          "expr": "sum(rate(container_http_requests_total{status_code=~\"5..\"}[5m]))",
+          "legendFormat": "5xx errors"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Container Resource Usage",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total[5m])) by (name)",
+          "legendFormat": "{{name}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Memory Usage by Container",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(container_memory_usage_bytes) by (name) / 1024 / 1024",
+          "legendFormat": "{{name}} MB"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Recent Security Events",
+      "type": "logs",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "{service=~\"auth|admin\",alert=\"true\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true
+      }
+    },
+    {
+      "id": 6,
+      "title": "Unauthorized Access Attempts",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "sum(increase(http_requests_total{status_code=\"401\"}[1h]))"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Forbidden Access (403)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 24 },
+      "targets": [
+        {
+          "expr": "sum(increase(http_requests_total{status_code=\"403\"}[1h]))"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Database Connection Errors",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 24 },
+      "targets": [
+        {
+          "expr": "sum(increase(db_connection_errors_total[1h]))"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Average Response Time",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 24 },
+      "targets": [
+        {
+          "expr": "avg(http_request_duration_seconds)"
+        }
+      ]
+    }
+  ],
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "schemaVersion": 16,
+  "version": 1
 }

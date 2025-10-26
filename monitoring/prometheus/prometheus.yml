@@ -2,8 +2,8 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
   external_labels:
-    cluster: 'predigrowee'
-    environment: 'development'
+    cluster: "predigrowee"
+    environment: "development"
 
 # Alertmanager configuration (optional)
 # alerting:
@@ -17,61 +17,68 @@ rule_files:
 
 scrape_configs:
   # Prometheus itself
-  - job_name: 'prometheus'
+  - job_name: "prometheus"
     static_configs:
-      - targets: ['localhost:9090']
+      - targets: ["localhost:9090"]
         labels:
-          service: 'prometheus'
+          service: "prometheus"
 
   # Node Exporter - host metrics
-  - job_name: 'node-exporter'
+  - job_name: "node-exporter"
     static_configs:
-      - targets: ['node-exporter:9100']
+      - targets: ["node-exporter:9100"]
         labels:
-          service: 'node-exporter'
+          service: "node-exporter"
 
   # cAdvisor - container metrics
-  - job_name: 'cadvisor'
+  - job_name: "cadvisor"
     static_configs:
-      - targets: ['cadvisor:8080']
+      - targets: ["cadvisor:8080"]
         labels:
-          service: 'cadvisor'
+          service: "cadvisor"
+
+  # Docker Engine metrics (requires enabling metrics on the host)
+  - job_name: "docker-engine"
+    static_configs:
+      - targets: ["host.docker.internal:9323"]
+        labels:
+          service: "docker-engine"
 
   # Go microservices - assuming they expose /metrics endpoint
-  - job_name: 'auth-service'
+  - job_name: "auth-service"
     static_configs:
-      - targets: ['auth:8080']
+      - targets: ["auth:8080"]
         labels:
-          service: 'auth'
-    metrics_path: '/metrics'
+          service: "auth"
+    metrics_path: "/metrics"
 
-  - job_name: 'quiz-service'
+  - job_name: "quiz-service"
     static_configs:
-      - targets: ['quiz:8080']
+      - targets: ["quiz:8080"]
         labels:
-          service: 'quiz'
-    metrics_path: '/metrics'
+          service: "quiz"
+    metrics_path: "/metrics"
 
-  - job_name: 'stats-service'
+  - job_name: "stats-service"
     static_configs:
-      - targets: ['stats:8080']
+      - targets: ["stats:8080"]
         labels:
-          service: 'stats'
-    metrics_path: '/metrics'
+          service: "stats"
+    metrics_path: "/metrics"
 
-  - job_name: 'images-service'
+  - job_name: "images-service"
     static_configs:
-      - targets: ['images:8080']
+      - targets: ["images:8080"]
         labels:
-          service: 'images'
-    metrics_path: '/metrics'
+          service: "images"
+    metrics_path: "/metrics"
 
-  - job_name: 'admin-service'
+  - job_name: "admin-service"
     static_configs:
-      - targets: ['admin:8080']
+      - targets: ["admin:8080"]
         labels:
-          service: 'admin'
-    metrics_path: '/metrics'
+          service: "admin"
+    metrics_path: "/metrics"
 
   # PostgreSQL Exporter (optional - requires postgres_exporter)
   # - job_name: 'postgres'

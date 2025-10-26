@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Prometheus - metrics collection
   prometheus:
@@ -8,6 +6,8 @@ services:
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -192,6 +192,7 @@ services:
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     expose:
       - "8080"
     networks:
@@ -217,4 +218,5 @@ volumes:
 
 networks:
   monitoring:
-    driver: bridge
+    external: true
+    name: predigroweev2_monitoring
