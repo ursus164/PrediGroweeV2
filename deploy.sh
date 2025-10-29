@@ -3,7 +3,7 @@
 # Exit on any error
 set -e
 
-echo "🚀 Starting deployment process..."
+echo "Starting deployment process..."
 
 # Define base directory
 BASE_DIR=~/app_v2/PrediGroweeV2
@@ -12,11 +12,11 @@ BASE_DIR=~/app_v2/PrediGroweeV2
 cd $BASE_DIR
 
 # Pull the latest changes from the master branch
-echo "📥 Pulling latest changes from git..."
+echo "Pulling latest changes from git..."
 git pull origin master
 
 # Load environment variables from .env.prod
-echo "⚙️ Loading environment variables..."
+echo "Loading environment variables..."
 set -a  # automatically export all variables
 source .env.prod
 set +a  # stop automatically exporting
@@ -34,11 +34,11 @@ set +a  # stop automatically exporting
 #done
 
 # Start or update the services
-echo "🔄 Starting/updating services..."
+echo "Starting/updating services..."
 docker-compose -f docker-compose.prod.yml up  --build
 
 # Wait for services to be healthy
-#echo "🏥 Checking services health..."
+#echo "Checking services health..."
 #sleep 10
 
 ## Check if all services are running

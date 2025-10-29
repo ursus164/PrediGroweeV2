@@ -1,13 +1,11 @@
 #!/bin/bash
 
-# Git pre-commit hook - comprehensive security check
-# ZAWSZE SKANUJE CAŁE REPO (nie tylko zmienione pliki)
-# Kopiuj do: .git/hooks/pre-commit
-# lub użyj: ln -s ../../scripts/git-hooks/pre-commit .git/hooks/pre-commit
+# skopiuj do: .git/hooks/pre-commit
+# lub: ln -s ../../scripts/git-hooks/pre-commit .git/hooks/pre-commit
 
 echo "Running pre-commit security checks (full repository scan)..."
 
-# 1. Sprawdzenie czy nie commitujemy sekretów - CAŁE REPO
+# 1. Sprawdzenie czy nie commitujemy sekretów
 echo "Checking for secrets in all files..."
 # Pattern: password = "hardcoded_value" (with quotes) - exclude env var reads
 if grep -rI "password.*=.*['\"].*['\"]" . --exclude-dir=.git --exclude-dir=node_modules --exclude=pre-commit 2>/dev/null | grep -v "POSTGRES_PASSWORD" | grep -v "os.Getenv" | grep -v "process.env" | grep -v "Pattern:"; then
@@ -22,7 +20,7 @@ if grep -rI "api[_-]?key.*=.*['\"].*['\"]" . --exclude-dir=.git --exclude-dir=no
     exit 1
 fi
 
-# 2. Sprawdzenie czy nie commitujemy dużych plików - WSZYSTKIE PLIKI
+# 2. Sprawdzenie czy nie commitujemy dużych plików
 echo "Checking all file sizes in repository..."
 while IFS= read -r -d '' file; do
     if [ -f "$file" ]; then
@@ -35,7 +33,7 @@ while IFS= read -r -d '' file; do
     fi
 done < <(find . -type f -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.next/*" -not -path "./dist/*" -not -path "./build/*" -not -path "./database-init/*" -not -path "./security-reports/*" -print0)
 
-# 3. Sprawdzenie Dockerfile - WSZYSTKIE
+# 3. Sprawdzenie Dockerfile
 echo "Checking all Dockerfiles..."
 if command -v hadolint &> /dev/null; then
     echo "  Running hadolint on all Dockerfiles..."
@@ -67,7 +65,7 @@ else
     done
 fi
 
-# 4. Sprawdzenie trailing whitespace - WSZYSTKIE PLIKI
+# 4. Sprawdzenie trailing whitespace
 echo "Checking for trailing whitespace in all files..."
 TRAILING_WS_FOUND=0
 while IFS= read -r -d '' file; do
@@ -87,14 +85,14 @@ else
     echo "  ✓ No trailing whitespace"
 fi
 
-# 6. Sprawdzenie Go files - WSZYSTKIE SERWISY
+# 6. Sprawdzenie Go files
 echo "Checking all Go services..."
 
     # Go fmt
     echo "  Running go fmt on all services..."
     go fmt ./... > /dev/null 2>&1
 
-    # golangci-lint - SCAN ALL SERVICES (includes: govet, staticcheck, gosec, errcheck, and 40+ linters)
+    # golangci-lint
     if command -v golangci-lint &> /dev/null; then
         echo "  Running golangci-lint on all services (includes: govet, staticcheck, gosec)..."
         for service in auth quiz stats images admin; do
@@ -110,7 +108,7 @@ echo "Checking all Go services..."
     else
         echo "  ⚠️  golangci-lint not installed - install with: ./scripts/install-security-tools.sh"
         echo "     It replaces: govet, staticcheck, gosec, and provides 40+ other linters"
-    fi    # Go tests - SCAN ALL SERVICES (not just changed)
+    fi
     echo "  Running go test on all services..."
     for service in auth quiz stats images admin; do
         if [ -d "$service" ]; then
@@ -124,7 +122,7 @@ echo "Checking all Go services..."
         fi
     done
 
-    # govulncheck - SCAN ALL SERVICES (not just changed)
+    # govulncheck
     if command -v govulncheck &> /dev/null; then
         echo "  Running govulncheck on all services..."
         for service in auth quiz stats images admin; do
@@ -145,7 +143,7 @@ echo "Checking all Go services..."
         done
     fi
 
-# 7. Sprawdzenie package.json/package-lock.json - ZAWSZE
+# 7. Sprawdzenie package.json/package-lock.json
 if [ -f "../PrediGroweeV2-UI/package.json" ]; then
     echo "Checking frontend (PrediGroweeV2-UI)..."
 
@@ -155,7 +153,7 @@ if [ -f "../PrediGroweeV2-UI/package.json" ]; then
     echo "  Running npm audit..."
     npm audit --audit-level=high 2>&1 | head -20 || echo "  ⚠️  npm audit issues found"
 
-    # prettier (jeśli dostępne)
+    # prettier
     if command -v prettier &> /dev/null; then
         echo "  Running prettier check..."
         npx prettier --check "src/**/*.{ts,tsx,js,jsx}" 2>&1 | head -20 || {
@@ -167,7 +165,7 @@ if [ -f "../PrediGroweeV2-UI/package.json" ]; then
     cd ../PrediGroweeV2
 fi
 
-# 8. Sprawdzenie YAML files - WSZYSTKIE
+# 8. Sprawdzenie YAML files
 echo "Checking all YAML files..."
 if command -v yamllint &> /dev/null; then
     find . -name "*.yml" -o -name "*.yaml" | grep -v node_modules | grep -v .git | xargs yamllint 2>&1 | head -20 || {

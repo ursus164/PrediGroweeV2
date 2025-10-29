@@ -10,7 +10,6 @@ run:
 
 linters:
   enable:
-    # Default linters (already enabled, but explicit is better)
     - errcheck      # Check for unchecked errors
     - govet         # Official Go tool (replaces: go vet)
     - ineffassign   # Detect ineffectual assignments
@@ -86,14 +85,12 @@ linters-settings:
 
 issues:
   exclude-rules:
-    # Exclude some linters from test files
     - path: _test\.go
       linters:
         - gocyclo
         - errcheck
         - gosec
 
-    # Exclude known linters from generated files
     - path: ".*\\.pb\\.go"
       linters:
         - all
@@ -101,7 +98,6 @@ issues:
   max-issues-per-linter: 0
   max-same-issues: 0
 
-  # Don't skip warning about doc comments
   exclude-use-default: false
 
 output:

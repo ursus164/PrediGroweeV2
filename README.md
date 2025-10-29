@@ -51,7 +51,7 @@ source ~/.bashrc
 - [MONITORING_QUICKSTART.md](./MONITORING_QUICKSTART.md) - Szybki start monitoringu
 - [database-init/README.md](./database-init/README.md) - Inicjalizacja baz danych
 
-## Monitoring & Security Logging 📊
+## Monitoring & Security Logging
 
 Stack monitoringu zapewnia:
 

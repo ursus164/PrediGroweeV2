@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    # Skanowanie codziennie o 2:00 (sprawdzanie nowych CVE)
     - cron: "0 2 * * *"
 
 # Permissions dla SARIF upload do GitHub Security tab
@@ -16,9 +15,9 @@ permissions:
   actions: read
 
 # Security Policy:
-# - CRITICAL/HIGH CVE → Pipeline FAILS (must fix)
-# - MEDIUM/LOW CVE → Warning only (reported to Security tab)
-# - Infrastructure issues (Hadolint/Dockle) → Info only (no block)
+# - CRITICAL/HIGH CVE → Pipeline FAILS
+# - MEDIUM/LOW CVE → Warning only
+# - Infrastructure issues (Hadolint/Dockle) → Info only
 
 jobs:
   hadolint:

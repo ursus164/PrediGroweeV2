@@ -6,6 +6,7 @@ Automatyczne skanowanie bezpieczeństwa dla projektu PrediGrowee zgodnie z wymag
 
 Implementacja podstawowych mechanizmów zabezpieczających w środowisku konteneryzacji:
 
+- Refactor obrazów (ograniczenie możliwych podatności - Capabilities... AppSec...)
 - Statyczna analiza Dockerfile
 - Skanowanie podatności (CVE) w obrazach
 - Generowanie i analiza SBOM (Software Bill of Materials)
@@ -263,8 +264,11 @@ CVE-2023-12345
 Pipeline generuje następujące metryki:
 
 - Liczba CVE per severity
+- Opis danego severity
 - Rozmiar obrazów Docker
 - Liczba podatnych zależności
+- Błędy implementacyjne (Dockerfile)
+- Błędy analizy statycznej i ich klasyfikacja po typie
 - Coverage skanowania
 - Czas naprawy podatności
 

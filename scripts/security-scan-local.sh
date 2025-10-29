@@ -1,10 +1,8 @@
 #!/bin/bash
 
-# Skrypt do lokalnego skanowania bezpieczeństwa przed pushem
-# ZAWSZE SKANUJE CAŁE REPO (wszystkie serwisy) - nie tylko zmienione pliki
+# Skrypt do lokalnego skanowania bezpieczeństwa przed pushem - analogiczny do PIPELINE CICD
 # Użycie: ./scripts/security-scan-local.sh
 
-# Nie przerywamy na błędach - chcemy zobaczyć wszystkie wyniki
 # set -e
 
 echo "PrediGrowee Security Scan - local"
@@ -137,7 +135,7 @@ fi
 
 echo ""
 
-# Budowanie wszystkich mikroserwisów - ZAWSZE WSZYSTKIE SERWISY
+# Budowanie wszystkich mikroserwisów
 SERVICES=("auth" "quiz" "stats" "images" "admin")
 for service in "${SERVICES[@]}"; do
     echo "Building $service..."
@@ -220,7 +218,6 @@ done
 echo ""
 echo "Running Go Static Analysis (golangci-lint)..."
 echo "  Note: golangci-lint includes govet, staticcheck, gosec, and 40+ other linters"
-# ZAWSZE SKANUJE WSZYSTKIE SERWISY (nie tylko zmienione)
 if [ $GO_AVAILABLE -eq 1 ]; then
     if command -v golangci-lint &> /dev/null; then
         for service in "${SERVICES[@]}"; do
@@ -228,7 +225,6 @@ if [ $GO_AVAILABLE -eq 1 ]; then
             echo "=== $service ==="
             cd ./$service
 
-            # golangci-lint runs: govet, staticcheck, gosec, errcheck, and many more
             if ! golangci-lint run --timeout=5m; then
                 echo -e "${RED}    ⚠️  golangci-lint found issues${NC}"
                 TOTAL_ERRORS=$((TOTAL_ERRORS + 1))
