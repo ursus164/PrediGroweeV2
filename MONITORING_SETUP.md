@@ -26,6 +26,7 @@ docker-compose -f docker-compose.monitoring.yml up -d
 ### 2. Access Dashboards
 
 - **Grafana**: http://localhost:3002
+
   - Username: `admin`
   - Password: `admin123` (change this!)
 
@@ -45,21 +46,25 @@ services:
 ## Security Monitoring Features
 
 ### 1. Failed Authentication Tracking
+
 - Monitors failed login attempts
 - Alerts on suspicious patterns
 - Tracks unauthorized access (401)
 
 ### 2. HTTP Error Monitoring
+
 - 4xx client errors
 - 5xx server errors
 - Response time tracking
 
 ### 3. Container Security
+
 - Resource usage monitoring
 - Container health checks
 - Network traffic analysis
 
 ### 4. Log Analysis
+
 - Real-time log streaming
 - Security event filtering
 - Pattern matching for threats
@@ -110,16 +115,19 @@ http.Handle("/metrics", promhttp.Handler())
 ### Key Metrics to Track
 
 1. **Authentication**
+
    - `auth_failed_attempts_total` - Failed login attempts
    - `auth_successful_logins_total` - Successful logins
    - `auth_token_validations_total` - Token validation attempts
 
 2. **HTTP Traffic**
+
    - `http_requests_total` - Total requests by status code
    - `http_request_duration_seconds` - Response times
    - `http_requests_in_flight` - Concurrent requests
 
 3. **Database**
+
    - `db_connections_active` - Active connections
    - `db_query_duration_seconds` - Query performance
    - `db_connection_errors_total` - Connection failures
@@ -202,16 +210,16 @@ Import these community dashboards by ID:
 
 ```yaml
 global:
-  smtp_smarthost: 'localhost:587'
-  smtp_from: 'alerts@predigrowee.com'
+  smtp_smarthost: "localhost:587"
+  smtp_from: "alerts@predigrowee.com"
 
 route:
-  receiver: 'team-email'
+  receiver: "team-email"
 
 receivers:
-  - name: 'team-email'
+  - name: "team-email"
     email_configs:
-      - to: 'team@predigrowee.com'
+      - to: "team@predigrowee.com"
 ```
 
 3. Add to docker-compose.monitoring.yml:
@@ -276,6 +284,7 @@ sudo ufw allow from 127.0.0.1 to any port 3002
 ### 4. Regular Log Review
 
 Schedule regular reviews of:
+
 - Failed authentication attempts
 - Unusual access patterns
 - Resource usage spikes
@@ -287,7 +296,7 @@ Adjust retention in `loki-config.yml`:
 
 ```yaml
 limits_config:
-  retention_period: 744h  # 31 days (adjust as needed)
+  retention_period: 744h # 31 days (adjust as needed)
 ```
 
 ## Troubleshooting
@@ -327,6 +336,7 @@ docker-compose -f docker-compose.monitoring.yml exec grafana wget -O- http://pro
 ### Resource Usage
 
 Monitoring stack resource requirements:
+
 - Prometheus: ~256-512MB RAM
 - Grafana: ~256-512MB RAM
 - Loki: ~256-512MB RAM

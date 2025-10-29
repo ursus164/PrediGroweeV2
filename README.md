@@ -54,6 +54,7 @@ source ~/.bashrc
 ## Monitoring & Security Logging 📊
 
 Stack monitoringu zapewnia:
+
 - **Prometheus** - zbieranie metryk (CPU, RAM, błędy HTTP)
 - **Grafana** - wizualizacja i dashboardy (http://localhost:3002)
 - **Loki** - agregacja logów w czasie rzeczywistym

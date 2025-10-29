@@ -25,7 +25,7 @@ Otwórz w przeglądarce: **http://localhost:3002**
 - Login: `admin`
 - Hasło: `admin123`
 
-##  5. Zobacz logi w czasie rzeczywistym
+## 5. Zobacz logi w czasie rzeczywistym
 
 1. W Grafana przejdź do **Explore**
 2. Wybierz datasource **Loki**

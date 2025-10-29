@@ -18,30 +18,33 @@ Kompletny stack monitoringu i security logging dla aplikacji PrediGrowee z wykor
 
 ### Komponenty
 
-| Komponent | Funkcja | Port |
-|-----------|---------|------|
-| **Prometheus** | Zbieranie i przechowywanie metryk | 9090 (internal) |
-| **Grafana** | Wizualizacja i dashboardy | 3002 |
-| **Loki** | Agregacja logów | 3100 (internal) |
-| **Promtail** | Zbieranie logów z kontenerów | 9080 (internal) |
-| **Node Exporter** | Metryki hosta | 9100 (internal) |
-| **cAdvisor** | Metryki kontenerów | 8080 (internal) |
+| Komponent         | Funkcja                           | Port            |
+| ----------------- | --------------------------------- | --------------- |
+| **Prometheus**    | Zbieranie i przechowywanie metryk | 9090 (internal) |
+| **Grafana**       | Wizualizacja i dashboardy         | 3002            |
+| **Loki**          | Agregacja logów                   | 3100 (internal) |
+| **Promtail**      | Zbieranie logów z kontenerów      | 9080 (internal) |
+| **Node Exporter** | Metryki hosta                     | 9100 (internal) |
+| **cAdvisor**      | Metryki kontenerów                | 8080 (internal) |
 
 ### Funkcje
 
 ✅ **Monitoring bezpieczeństwa**
+
 - Śledzenie nieudanych prób logowania
 - Monitoring błędów HTTP (4xx/5xx)
 - Wykrywanie nieautoryzowanego dostępu
 - Analiza wzorców zagrożeń
 
 ✅ **Monitoring wydajności**
+
 - CPU i pamięć per kontener
 - Ruch sieciowy
 - Czasy odpowiedzi
 - Wykorzystanie zasobów
 
 ✅ **Agregacja logów**
+
 - Streaming logów w czasie rzeczywistym
 - Filtrowanie zdarzeń bezpieczeństwa
 - Wyszukiwanie i analiza
@@ -142,6 +145,7 @@ docker-compose -f docker-compose.monitoring.yml logs -f prometheus
 **URL:** http://localhost:3002
 
 **Domyślne dane logowania:**
+
 - Username: `admin`
 - Password: `admin123`
 
@@ -227,14 +231,14 @@ W `docker-compose.monitoring.yml`:
 ```yaml
 prometheus:
   command:
-    - '--storage.tsdb.retention.time=30d'  # Zmień na 90d dla 3 miesięcy
+    - "--storage.tsdb.retention.time=30d" # Zmień na 90d dla 3 miesięcy
 ```
 
 **Loki** - edytuj `monitoring/loki/loki-config.yml`:
 
 ```yaml
 limits_config:
-  retention_period: 744h  # 31 dni - zmień na 2160h dla 90 dni
+  retention_period: 744h # 31 dni - zmień na 2160h dla 90 dni
 ```
 
 ## 📊 Użytkowanie
@@ -358,6 +362,7 @@ sum(rate({service=~".*"} | json | level="error" [5m])) by (service)
 
 1. Grafana → **Dashboards** → **Import**
 2. Wpisz ID dashboardu:
+
    - **1860** - Node Exporter Full
    - **893** - Docker and Host Monitoring
    - **13639** - Loki Dashboard Quick Search
@@ -447,7 +452,7 @@ Edytuj `monitoring/loki/loki-config.yml`:
 
 ```yaml
 limits_config:
-  retention_period: 168h  # 7 dni zamiast 31
+  retention_period: 168h # 7 dni zamiast 31
 ```
 
 ### Problem: Kontener ciągle się restartuje
@@ -471,6 +476,7 @@ docker stats
 ### Zmiana domyślnego hasła Grafana
 
 **Przez interfejs:**
+
 1. Zaloguj się → User icon → Change password
 
 **Przez environment variable:**
