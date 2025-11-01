@@ -1,0 +1,9 @@
+{
+  "icc": false,
+  "log-level": "info",
+  "userns-remap": "default",
+  "disable-legacy-registry": true,
+  "live-restore": true,
+  "userland-proxy": false,
+  "no-new-privileges": true
+}
