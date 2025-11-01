@@ -39,9 +39,16 @@ services:
         limits:
           cpus: '0.5'
           memory: 256M
+          pids: 50
         reservations:
           cpus: '0.25'
           memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Postgres for Auth
   auth_db:
@@ -62,6 +69,29 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # Security hardening
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+      - /var/run/postgresql:size=10M,mode=0755
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+          pids: 100
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # Postgres for Quiz
   quiz_db:
@@ -82,6 +112,29 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # Security hardening
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+      - /var/run/postgresql:size=10M,mode=0755
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+          pids: 100
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # Postgres for Stats
   stats_db:
@@ -102,6 +155,29 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # Security hardening
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+      - /var/run/postgresql:size=10M,mode=0755
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+          pids: 100
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   images_db:
     image: postgres:13
@@ -121,6 +197,29 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # Security hardening
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+      - /var/run/postgresql:size=10M,mode=0755
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+          pids: 100
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # Auth microservice
   auth:
@@ -159,6 +258,7 @@ services:
         limits:
           cpus: '0.5'
           memory: 512M
+          pids: 100
         reservations:
           cpus: '0.25'
           memory: 256M
@@ -201,6 +301,7 @@ services:
         limits:
           cpus: '0.5'
           memory: 512M
+          pids: 100
         reservations:
           cpus: '0.25'
           memory: 256M
@@ -242,6 +343,7 @@ services:
         limits:
           cpus: '0.5'
           memory: 512M
+          pids: 100
         reservations:
           cpus: '0.25'
           memory: 256M
@@ -282,6 +384,7 @@ services:
         limits:
           cpus: '0.5'
           memory: 512M
+          pids: 100
         reservations:
           cpus: '0.25'
           memory: 256M
@@ -314,6 +417,7 @@ services:
         limits:
           cpus: '0.5'
           memory: 512M
+          pids: 100
         reservations:
           cpus: '0.25'
           memory: 256M
@@ -361,9 +465,16 @@ services:
         limits:
           cpus: '1.0'
           memory: 1024M
+          pids: 200
         reservations:
           cpus: '0.5'
           memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
   auth_db_data:

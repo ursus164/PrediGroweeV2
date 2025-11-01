@@ -1,6 +1,6 @@
 module auth
 
-go 1.23.12
+go 1.24.9
 
 require (
 	github.com/go-playground/validator/v10 v10.22.1
