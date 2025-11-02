@@ -5,18 +5,21 @@ Automatyczny skrypt porównujący zabezpieczenia między branch `main` (przed zm
 ## 🛠️ Narzędzia używane
 
 ### 1. **CIS Docker Benchmark** (Docker Bench Security)
+
 - **Waga:** 40%
 - **Co testuje:** Zgodność z CIS Docker Benchmark v1.6.0
 - **Obszary:** Host configuration, Docker daemon, images, containers, security operations
 - **Źródło:** https://github.com/docker/docker-bench-security
 
 ### 2. **OWASP ZAP** (Zed Attack Proxy)
+
 - **Waga:** 40%
 - **Co testuje:** OWASP Top 10 vulnerabilities
 - **Typ:** Automated baseline security scan
 - **Źródło:** https://www.zaproxy.org/
 
 ### 3. **Custom Security Checks**
+
 - **Waga:** 20%
 - **Co testuje:**
   - Container hardening (cap_drop, read_only, security_opt)
@@ -34,6 +37,7 @@ sudo ./scripts/security-comparison.sh
 ```
 
 ⚠️ **Wymagania:**
+
 - Docker i docker-compose zainstalowane
 - Uprawnienia sudo (dla Docker Bench Security)
 - Wolne porty 8080, 3000 (dla OWASP ZAP scan)
@@ -90,33 +94,37 @@ Skrypt generuje:
 
 ### Metrics tracked:
 
-| Metric | Description |
-|--------|-------------|
-| CIS PASS/WARN/INFO | Docker infrastructure compliance |
-| OWASP HIGH/MEDIUM/LOW | Application vulnerability count |
-| Hardening score | Container security configuration |
-| Non-root users | Service user configuration |
-| Secrets management | Credential handling |
+| Metric                | Description                      |
+| --------------------- | -------------------------------- |
+| CIS PASS/WARN/INFO    | Docker infrastructure compliance |
+| OWASP HIGH/MEDIUM/LOW | Application vulnerability count  |
+| Hardening score       | Container security configuration |
+| Non-root users        | Service user configuration       |
+| Secrets management    | Credential handling              |
 
 ## 🔧 Troubleshooting
 
 ### "Docker not available"
+
 ```bash
 sudo systemctl start docker
 ```
 
 ### "Permission denied"
+
 ```bash
 sudo chmod +x scripts/security-comparison.sh
 ```
 
 ### "Port already in use"
+
 ```bash
 docker-compose down -v
 sudo lsof -ti:8080 | xargs kill -9
 ```
 
 ### "Application not responding"
+
 - Zwiększ sleep time w skrypcie (linia: `sleep 30` → `sleep 60`)
 - Sprawdź logi: `docker-compose logs`
 

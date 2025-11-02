@@ -31,7 +31,7 @@ while IFS= read -r -d '' file; do
             exit 1
         fi
     fi
-done < <(find . -type f -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.next/*" -not -path "./dist/*" -not -path "./build/*" -not -path "./database-init/*" -not -path "./security-reports/*" -print0)
+done < <(find . -type f -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.next/*" -not -path "./dist/*" -not -path "./build/*" -not -path "./database-init/*" -not -path "./security-reports/*" -not -path "./security-comparison-report/*" -print0)
 
 # 3. Sprawdzenie Dockerfile
 echo "Checking all Dockerfiles..."
@@ -75,7 +75,7 @@ while IFS= read -r -d '' file; do
             TRAILING_WS_FOUND=1
         fi
     fi
-done < <(find . -type f \( -name "*.go" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.yml" -o -name "*.yaml" -o -name "*.json" -o -name "*.md" \) -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.next/*" -print0)
+done < <(find . -type f \( -name "*.go" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.yml" -o -name "*.yaml" -o -name "*.json" -o -name "*.md" \) -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.next/*" -not -path "./security-comparison-report/*" -not -path "./security-reports/*" -print0)
 
 if [ $TRAILING_WS_FOUND -eq 1 ]; then
     echo "❌ ERROR: Trailing whitespace found!"
