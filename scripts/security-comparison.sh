@@ -86,3 +86,4 @@ if [ "$ready" = "true" ]; then
         > "$BRANCH_DIR/owasp-zap.txt" 2>&1 || true
 
     chmod 755 "$BRANCH_DIR"
+fi
