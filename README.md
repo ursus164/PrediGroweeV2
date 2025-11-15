@@ -47,6 +47,7 @@ source ~/.bashrc
 
 - [SECURITY-PIPELINE.md](./SECURITY-PIPELINE.md) - Pipeline bezpieczeństwa i skanowanie
 - [SECURITY_HARDENING.md](./SECURITY_HARDENING.md) - Docker security hardening
+- [CIS_DOCKER_BENCHMARK_GUIDE.md](./CIS_DOCKER_BENCHMARK_GUIDE.md) - **CIS Docker Benchmark - Przewodnik**
 - [monitoring/README.md](./monitoring/README.md) - **Monitoring i Security Logging (Prometheus, Grafana, Loki)**
 - [MONITORING_QUICKSTART.md](./MONITORING_QUICKSTART.md) - Szybki start monitoringu
 - [database-init/README.md](./database-init/README.md) - Inicjalizacja baz danych
@@ -78,3 +79,37 @@ docker-compose up -d
 ```
 
 Pełna dokumentacja: [monitoring/README.md](./monitoring/README.md)
+
+## Security Scanning
+
+### CIS Docker Benchmark + OWASP ZAP
+
+Uruchom pełne skanowanie bezpieczeństwa:
+
+```bash
+# Pełne skanowanie (CIS + OWASP ZAP)
+./scripts/security-comparison.sh
+
+# Tylko CIS Docker Benchmark
+./scripts/cis-scan.sh
+
+# Tylko backend (CVE, SBOM, linting)
+./scripts/security-scan-local.sh
+```
+
+**Czym jest CIS Docker Benchmark?**
+
+CIS Docker Benchmark to zestaw 117 kontroli bezpieczeństwa dla kontenerów Docker. Sprawdza:
+
+- Konfigurację Docker daemon
+- Runtime security (capabilities, resource limits)
+- Security opcje kontenerów
+- Bezpieczeństwo obrazów
+
+**Wyniki PrediGrowee:**
+
+- **Przed zabezpieczeniami:** 4/117 (3.4%)
+- **Po zabezpieczeniach:** 18+/117 (15.4%)
+- **Poprawa:** +350%
+
+Więcej informacji: [CIS_DOCKER_BENCHMARK_GUIDE.md](./CIS_DOCKER_BENCHMARK_GUIDE.md)

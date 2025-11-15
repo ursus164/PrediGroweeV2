@@ -12,6 +12,8 @@ Implementacja podstawowych mechanizmów zabezpieczających w środowisku kontene
 - Generowanie i analiza SBOM (Software Bill of Materials)
 - Wykrywanie podatnych zależności
 - Detekcja wycieków sekretów
+- **CIS Docker Benchmark** - zgodność z najlepszymi praktykami bezpieczeństwa kontenerów
+- **OWASP ZAP** - skanowanie bezpieczeństwa aplikacji webowej
 
 ## Automatyczne Skanowanie (GitHub Actions)
 
@@ -105,8 +107,11 @@ sudo dpkg -i dockle.deb
 ### Uruchomienie skanowania
 
 ```bash
-# Backend
+# Pełne skanowanie (CIS + OWASP ZAP)
 cd PrediGroweeV2
+./scripts/security-comparison.sh
+
+# Tylko backend
 ./scripts/security-scan-local.sh
 
 # Frontend
@@ -118,6 +123,16 @@ trivy image frontend:prod
 ### Pojedyncze narzędzia
 
 ```bash
+# CIS Docker Benchmark
+cd ~/.docker-bench-security
+sudo sh docker-bench-security.sh
+
+# OWASP ZAP Baseline Scan
+docker run --rm --network host \
+  -v $(pwd):/zap/wrk/:rw \
+  -t ghcr.io/zaproxy/zaproxy:stable \
+  zap-baseline.py -t http://localhost:8080
+
 # Skanowanie konkretnego obrazu
 trivy image predigrowee-auth:latest
 
