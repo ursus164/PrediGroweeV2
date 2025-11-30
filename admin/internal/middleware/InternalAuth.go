@@ -1,11 +1,14 @@
+// Package middleware provides HTTP middleware for the admin service.
 package middleware
 
 import (
-	"go.uber.org/zap"
 	"net/http"
+
+	"go.uber.org/zap"
 )
 
-func InternalAuth(next http.HandlerFunc, logger *zap.Logger, apiKey string) http.HandlerFunc {
+// InternalAuth is a middleware that verifies internal API key authentication.
+func InternalAuth(next http.HandlerFunc, _ *zap.Logger, apiKey string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if apiKey == "" {
 			http.Error(w, "internal api key not configured", http.StatusInternalServerError)

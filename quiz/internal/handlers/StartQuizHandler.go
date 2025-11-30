@@ -32,71 +32,7 @@ func writeJSONError(w http.ResponseWriter, status int, payload map[string]interf
 	_ = json.NewEncoder(w).Encode(payload)
 }
 
-func (h *StartQuizHandler) Handle(rw http.ResponseWriter, r *http.Request) {
-	h.logger.Info("Starting quiz session")
-	userID := r.Context().Value("user_id").(int)
-
-	mode, hours, err := h.storage.GetSecuritySettings()
-	if err != nil {
-		h.logger.Error("security settings error", zap.Error(err))
-		http.Error(rw, "internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	switch mode {
-	case "manual":
-		ok, err := h.storage.IsUserApproved(userID)
-		if err != nil {
-			h.logger.Error("manual approval read error", zap.Error(err))
-			http.Error(rw, "internal server error", http.StatusInternalServerError)
-			return
-		}
-		if !ok {
-			writeJSONError(rw, http.StatusForbidden, map[string]interface{}{
-				"error":   "approval_required",
-				"message": "Account requires manual approval by an administrator.",
-				"mode":    "manual",
-			})
-			return
-		}
-	case "cooldown":
-		regAt, err := h.storage.UpsertAndGetRegisteredAt(userID)
-		if err != nil {
-			h.logger.Error("registered_at read error", zap.Error(err))
-			http.Error(rw, "internal server error", http.StatusInternalServerError)
-			return
-		}
-		readyAt := regAt.Add(time.Duration(hours) * time.Hour)
-		if time.Now().UTC().Before(readyAt) {
-			left := time.Until(readyAt)
-			waitSeconds := int(left.Seconds())
-			if waitSeconds < 0 {
-				waitSeconds = 0
-			}
-			writeJSONError(rw, http.StatusForbidden, map[string]interface{}{
-				"error":         "cooldown_active",
-				"message":       fmt.Sprintf("Please wait before starting the quiz."),
-				"mode":          "cooldown",
-				"cooldownHours": hours,
-				"waitSeconds":   waitSeconds,
-				"readyAt":       readyAt.UTC().Format(time.RFC3339),
-			})
-			return
-		}
-	default:
-		// no restriction
-	}
-
-	var payload models.StartQuizPayload
-	if err := payload.FromJSON(r.Body); err != nil {
-		http.Error(rw, "invalid request payload", http.StatusBadRequest)
-		return
-	}
-	if err := payload.Validate(); err != nil {
-		http.Error(rw, err.Error(), http.StatusBadRequest)
-		return
-	}
-
+func (h *StartQuizHandler) createQuizSession(rw http.ResponseWriter, userID int, payload models.StartQuizPayload) (models.QuizSession, error) {
 	testCode := strings.TrimSpace(payload.TestCode)
 	var newQuizSession models.QuizSession
 
@@ -105,26 +41,26 @@ func (h *StartQuizHandler) Handle(rw http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			h.logger.Error("failed to get test by code", zap.Error(err))
 			http.Error(rw, "internal server error", http.StatusInternalServerError)
-			return
+			return models.QuizSession{}, fmt.Errorf("test lookup failed")
 		}
 		if t == nil {
 			writeJSONError(rw, http.StatusBadRequest, map[string]interface{}{
 				"error":   "invalid_test_code",
 				"message": "Unknown test code.",
 			})
-			return
+			return models.QuizSession{}, fmt.Errorf("invalid test code")
 		}
 
 		order, err := h.storage.GetTestQuestionIDsOrdered(t.ID)
 		if err != nil {
 			h.logger.Error("failed to get test questions", zap.Error(err))
 			http.Error(rw, "internal server error", http.StatusInternalServerError)
-			return
+			return models.QuizSession{}, fmt.Errorf("test questions failed")
 		}
 		if len(order) == 0 {
 			h.logger.Error("test has no questions")
 			http.Error(rw, "test has no questions", http.StatusServiceUnavailable)
-			return
+			return models.QuizSession{}, fmt.Errorf("no questions")
 		}
 
 		newQuizSession = models.QuizSession{
@@ -138,24 +74,23 @@ func (h *StartQuizHandler) Handle(rw http.ResponseWriter, r *http.Request) {
 			TestID:            &t.ID,
 			TestCode:          &t.Code,
 		}
-
 	} else {
 		groupID, err := h.storage.GetNextQuestionGroupID(0)
 		if err != nil {
 			h.logger.Error("failed to pick first group", zap.Error(err))
 			http.Error(rw, "internal server error", http.StatusInternalServerError)
-			return
+			return models.QuizSession{}, fmt.Errorf("group lookup failed")
 		}
 		order, err := h.storage.GetGroupQuestionsIDsRandomOrder(groupID)
 		if err != nil {
 			h.logger.Error("failed to get group questions", zap.Error(err))
 			http.Error(rw, "internal server error", http.StatusInternalServerError)
-			return
+			return models.QuizSession{}, fmt.Errorf("group questions failed")
 		}
 		if len(order) == 0 {
 			h.logger.Error("group has no questions")
 			http.Error(rw, "no questions in group", http.StatusServiceUnavailable)
-			return
+			return models.QuizSession{}, fmt.Errorf("no questions")
 		}
 
 		newQuizSession = models.QuizSession{
@@ -168,7 +103,87 @@ func (h *StartQuizHandler) Handle(rw http.ResponseWriter, r *http.Request) {
 			GroupOrder:        order,
 		}
 	}
+	return newQuizSession, nil
+}
 
+func (h *StartQuizHandler) checkSecurityRestrictions(rw http.ResponseWriter, userID int) bool {
+	mode, hours, err := h.storage.GetSecuritySettings()
+	if err != nil {
+		h.logger.Error("security settings error", zap.Error(err))
+		http.Error(rw, "internal server error", http.StatusInternalServerError)
+		return false
+	}
+
+	switch mode {
+	case "manual":
+		ok, err := h.storage.IsUserApproved(userID)
+		if err != nil {
+			h.logger.Error("manual approval read error", zap.Error(err))
+			http.Error(rw, "internal server error", http.StatusInternalServerError)
+			return false
+		}
+		if !ok {
+			writeJSONError(rw, http.StatusForbidden, map[string]interface{}{
+				"error":   "approval_required",
+				"message": "Account requires manual approval by an administrator.",
+				"mode":    "manual",
+			})
+			return false
+		}
+	case "cooldown":
+		regAt, err := h.storage.UpsertAndGetRegisteredAt(userID)
+		if err != nil {
+			h.logger.Error("registered_at read error", zap.Error(err))
+			http.Error(rw, "internal server error", http.StatusInternalServerError)
+			return false
+		}
+		readyAt := regAt.Add(time.Duration(hours) * time.Hour)
+		if time.Now().UTC().Before(readyAt) {
+			left := time.Until(readyAt)
+			waitSeconds := int(left.Seconds())
+			if waitSeconds < 0 {
+				waitSeconds = 0
+			}
+			writeJSONError(rw, http.StatusForbidden, map[string]interface{}{
+				"error":         "cooldown_active",
+				"message":       "Please wait before starting the quiz.",
+				"mode":          "cooldown",
+				"cooldownHours": hours,
+				"waitSeconds":   waitSeconds,
+				"readyAt":       readyAt.UTC().Format(time.RFC3339),
+			})
+			return false
+		}
+	default:
+		// no restriction
+	}
+	return true
+}
+
+func (h *StartQuizHandler) Handle(rw http.ResponseWriter, r *http.Request) {
+	h.logger.Info("Starting quiz session")
+	userID := r.Context().Value("user_id").(int)
+
+	if !h.checkSecurityRestrictions(rw, userID) {
+		return
+	}
+
+	var payload models.StartQuizPayload
+	if err := payload.FromJSON(r.Body); err != nil {
+		http.Error(rw, "invalid request payload", http.StatusBadRequest)
+		return
+	}
+	if err := payload.Validate(); err != nil {
+		http.Error(rw, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	newQuizSession, err := h.createQuizSession(rw, userID, payload)
+	if err != nil {
+		return
+	}
+
+	testCode := strings.TrimSpace(payload.TestCode)
 	if session, err := h.storage.GetUserLastQuizSession(userID); err == nil && session != nil {
 		session.FinishedAt = session.UpdatedAt
 		session.Status = models.QuizStatusFinished

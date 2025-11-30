@@ -1,0 +1,8 @@
+{
+  "icc": false,
+  "log-level": "info",
+  "disable-legacy-registry": true,
+  "live-restore": true,
+  "userland-proxy": false,
+  "no-new-privileges": true
+}

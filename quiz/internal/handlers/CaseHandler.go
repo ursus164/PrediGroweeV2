@@ -50,6 +50,11 @@ func (h *CaseHandler) CreateCase(w http.ResponseWriter, r *http.Request) {
 		}
 		createdParametersValues = append(createdParametersValues, createdParameter)
 		parameter, err := h.storage.GetParameterByID(pValue.ParameterID)
+		if err != nil {
+			h.logger.Error("Failed to get parameter", zap.Error(err))
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
 		parameters = append(parameters, parameter)
 	}
 	createdCase.ParameterValues = createdParametersValues

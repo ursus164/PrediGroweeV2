@@ -23,8 +23,8 @@ func VerifyToken(next http.HandlerFunc, authClient *clients.AuthClient) http.Han
 			log.Println("failed to verify token: ", err)
 			return
 		}
-		r = r.WithContext(context.WithValue(r.Context(), "user_id", userData.UserID))
-		r = r.WithContext(context.WithValue(r.Context(), "user_role", userData.Role))
+		r = r.WithContext(context.WithValue(r.Context(), userIDKey, userData.UserID))
+		r = r.WithContext(context.WithValue(r.Context(), userRoleKey, userData.Role))
 		log.Println("completed token verification")
 		next(w, r)
 	}

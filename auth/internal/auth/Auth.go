@@ -1,3 +1,4 @@
+// Package auth provides authentication and authorization utilities including JWT, sessions, and email verification.
 package auth
 
 import (

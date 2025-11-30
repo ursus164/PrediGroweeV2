@@ -1,6 +1,8 @@
+// Command images is the entrypoint for the Images microservice.
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	_ "github.com/lib/pq"
@@ -47,21 +49,26 @@ func main() {
 
 	// Verify database connection
 	for i := 1; i <= PingDbAttempts; i++ {
-		err = db.Ping()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		err = db.PingContext(ctx)
+		cancel()
 		if err == nil {
 			break
-		} else {
-			logger.Error(fmt.Sprintf("Failed to Ping the database (attempt: %d/%d)", i, PingDbAttempts), zap.Error(err))
 		}
+		logger.Error(fmt.Sprintf("Failed to ping the database (attempt: %d/%d)", i, PingDbAttempts), zap.Error(err))
 		time.Sleep(2 * time.Second)
 	}
-	if err = db.Ping(); err != nil {
-		logger.Fatal("Failed to ping database, exiting", zap.Error(err))
+	{
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err = db.PingContext(ctx); err != nil {
+			logger.Fatal("Failed to ping database, exiting", zap.Error(err))
+		}
 	}
 
 	authClient := clients.NewAuthClient("http://auth:8080/auth", logger)
-	apiServer := api.NewApiServer(":8080", logger, authClient, db)
-	apiServer.Run()
+	server := api.NewServer(":8080", logger, authClient, db)
+	server.Run()
 
 }
 func connectToPostgres() (*sql.DB, error) {

@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"regexp"
 	"strings"
@@ -65,7 +66,8 @@ func (h *TestsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	created, err := h.store.CreateTest(t, req.QuestionIDs)
 	if err != nil {
 		// duplicate code
-		if pgErr, ok := err.(*pq.Error); ok && pgErr.Code == "23505" {
+		var pgErr *pq.Error
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			http.Error(w, "test code already exists", http.StatusConflict)
 			return
 		}
@@ -119,7 +121,7 @@ func (h *TestsHandler) ProgressByCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sessions, err := h.store.ListSessionsByTestID(t.ID)
-	if err != nil && err != sql.ErrNoRows {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		h.logger.Error("list sessions by test id failed", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return

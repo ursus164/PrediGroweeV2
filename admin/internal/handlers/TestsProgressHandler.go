@@ -1,24 +1,26 @@
 package handlers
 
 import (
+	"admin/clients"
 	"encoding/json"
 	"net/http"
-
-	"admin/clients"
 
 	"go.uber.org/zap"
 )
 
+// TestsProgressHandler handles test progress HTTP requests.
 type TestsProgressHandler struct {
 	quiz   clients.QuizClient
 	stats  clients.StatsClient
 	logger *zap.Logger
 }
 
+// NewTestsProgressHandler creates a new TestsProgressHandler instance.
 func NewTestsProgressHandler(q clients.QuizClient, s clients.StatsClient, l *zap.Logger) *TestsProgressHandler {
 	return &TestsProgressHandler{quiz: q, stats: s, logger: l}
 }
 
+// Get retrieves test progress information for a specific test code.
 func (h *TestsProgressHandler) Get(w http.ResponseWriter, r *http.Request) {
 	code := r.PathValue("code")
 	if code == "" {

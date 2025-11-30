@@ -10,11 +10,13 @@ import (
 	"strconv"
 )
 
+// SurveysHandler handles HTTP requests for user survey data.
 type SurveysHandler struct {
 	storage storage.Storage
 	logger  *zap.Logger
 }
 
+// NewSurveysHandler creates a new SurveysHandler instance.
 func NewSurveysHandler(storage storage.Storage, logger *zap.Logger) *SurveysHandler {
 	return &SurveysHandler{
 		storage: storage,
@@ -22,6 +24,7 @@ func NewSurveysHandler(storage storage.Storage, logger *zap.Logger) *SurveysHand
 	}
 }
 
+// Save saves a user survey response.
 func (h *SurveysHandler) Save(w http.ResponseWriter, r *http.Request) {
 	var surveyResponse models.SurveyResponse
 	err := surveyResponse.FromJSON(r.Body)
@@ -47,11 +50,12 @@ func (h *SurveysHandler) Save(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
 
+// GetSurvey retrieves survey responses for a user or all users.
 func (h *SurveysHandler) GetSurvey(w http.ResponseWriter, r *http.Request) {
-	userId := r.PathValue("id")
-	if userId == "" {
-		userId = strconv.Itoa(r.Context().Value("user_id").(int))
-		if userId == "" {
+	userID := r.PathValue("id")
+	if userID == "" {
+		userID = strconv.Itoa(r.Context().Value("user_id").(int))
+		if userID == "" {
 			http.Error(w, "missing user id", http.StatusBadRequest)
 			return
 		}
@@ -60,15 +64,20 @@ func (h *SurveysHandler) GetSurvey(w http.ResponseWriter, r *http.Request) {
 	var surveyResponses interface{}
 	var err error
 
-	if userId == "-" {
+	if userID == "-" {
 		surveyResponses, err = h.storage.GetAllSurveyResponses()
 	} else {
-		userID, err := strconv.Atoi(userId)
+		userIDInt, err := strconv.Atoi(userID)
 		if err != nil {
 			http.Error(w, "invalid user id", http.StatusBadRequest)
 			return
 		}
-		surveyResponses, err = h.storage.GetSurveyResponseForUser(userID)
+		surveyResponses, err = h.storage.GetSurveyResponseForUser(userIDInt)
+		if err != nil {
+			h.logger.Error("failed to get survey response for user", zap.Error(err))
+			http.Error(w, "failed to get survey response", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	if err != nil {

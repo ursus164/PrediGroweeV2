@@ -1,3 +1,4 @@
+// Package api contains HTTP handlers for the Images service.
 package api
 
 import (
@@ -12,11 +13,13 @@ import (
 	"net/http"
 )
 
+// QuestionImagesHandler serves question-related images from disk based on DB paths.
 type QuestionImagesHandler struct {
 	logger *zap.Logger
 	db     *sql.DB
 }
 
+// NewQuestionImagesHandler creates a new QuestionImagesHandler.
 func NewQuestionImagesHandler(logger *zap.Logger, db *sql.DB) *QuestionImagesHandler {
 	return &QuestionImagesHandler{
 		logger: logger,
@@ -24,10 +27,11 @@ func NewQuestionImagesHandler(logger *zap.Logger, db *sql.DB) *QuestionImagesHan
 	}
 }
 
+// Handle resolves an image path for given question and image ids and serves the file.
 func (h *QuestionImagesHandler) Handle(rw http.ResponseWriter, r *http.Request) {
-	questionId := r.PathValue("questionId")
-	h.logger.Info("Getting image for question id: " + questionId)
-	questionID, err := strconv.Atoi(questionId)
+	questionIDRaw := r.PathValue("questionId")
+	h.logger.Info("Getting image for question id: " + questionIDRaw)
+	questionID, err := strconv.Atoi(questionIDRaw)
 	if err != nil {
 		http.Error(rw, "Invalid question id", http.StatusBadRequest)
 		return
@@ -38,12 +42,12 @@ func (h *QuestionImagesHandler) Handle(rw http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var imagePath string
-	err = h.db.QueryRow("SELECT image"+id+"_path FROM question_images WHERE question_id = $1", questionID).Scan(&imagePath)
+	err = h.db.QueryRowContext(r.Context(), "SELECT image"+id+"_path FROM question_images WHERE question_id = $1", questionID).Scan(&imagePath)
 	if err != nil {
 		http.Error(rw, "Failed to get image", http.StatusInternalServerError)
 		return
 	}
-	imagePath = strings.Replace(imagePath, "\\", "/", -1)
+	imagePath = strings.ReplaceAll(imagePath, "\\", "/")
 	imagePath = filepath.Clean(imagePath)
 
 	fullPath := filepath.Join("/app/images", imagePath)

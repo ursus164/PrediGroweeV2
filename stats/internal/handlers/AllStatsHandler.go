@@ -1,3 +1,4 @@
+// Package handlers provides HTTP request handlers for statistics endpoints.
 package handlers
 
 import (
@@ -10,11 +11,13 @@ import (
 	"strconv"
 )
 
+// GetAllStatsHandler handles HTTP requests for retrieving various statistics.
 type GetAllStatsHandler struct {
 	storage storage.Storage
 	logger  *zap.Logger
 }
 
+// NewGetAllStatsHandler creates a new GetAllStatsHandler instance.
 func NewGetAllStatsHandler(storage storage.Storage, logger *zap.Logger) *GetAllStatsHandler {
 	return &GetAllStatsHandler{
 		storage: storage,
@@ -22,6 +25,7 @@ func NewGetAllStatsHandler(storage storage.Storage, logger *zap.Logger) *GetAllS
 	}
 }
 
+// GetResponses retrieves all quiz question responses.
 func (h *GetAllStatsHandler) GetResponses(w http.ResponseWriter, _ *http.Request) {
 	stats, err := h.storage.GetAllResponses()
 	if err != nil {
@@ -30,8 +34,8 @@ func (h *GetAllStatsHandler) GetResponses(w http.ResponseWriter, _ *http.Request
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	statsJson, _ := json.Marshal(stats)
-	_, err = w.Write(statsJson)
+	statsJSON, _ := json.Marshal(stats)
+	_, err = w.Write(statsJSON)
 	if err != nil {
 		h.logger.Error("failed to write response", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -39,10 +43,11 @@ func (h *GetAllStatsHandler) GetResponses(w http.ResponseWriter, _ *http.Request
 	}
 }
 
+// GetStatsForQuestion retrieves statistics for a specific question or all questions.
 func (h *GetAllStatsHandler) GetStatsForQuestion(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("GetStatsForQuestion")
-	questionId := r.PathValue("id")
-	if questionId == "-" {
+	questionID := r.PathValue("id")
+	if questionID == "-" {
 		stats, err := h.storage.GetStatsForAllQuestions()
 		if err != nil {
 			h.logger.Error("failed to get stats", zap.Error(err))
@@ -50,25 +55,27 @@ func (h *GetAllStatsHandler) GetStatsForQuestion(w http.ResponseWriter, r *http.
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		statsJson, _ := json.Marshal(stats)
-		_, err = w.Write(statsJson)
+		statsJSON, _ := json.Marshal(stats)
+		if _, writeErr := w.Write(statsJSON); writeErr != nil {
+			h.logger.Error("failed to write response", zap.Error(writeErr))
+		}
 		return
 	}
-	questionID, err := strconv.Atoi(questionId)
+	questionIDInt, err := strconv.Atoi(questionID)
 	if err != nil {
 		h.logger.Error("failed to parse question id", zap.Error(err))
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	stats, err := h.storage.GetStatsForQuestion(questionID)
+	stats, err := h.storage.GetStatsForQuestion(questionIDInt)
 	if err != nil {
 		h.logger.Error("failed to get stats", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	statsJson, _ := json.Marshal(stats)
-	_, err = w.Write(statsJson)
+	statsJSON, _ := json.Marshal(stats)
+	_, err = w.Write(statsJSON)
 	if err != nil {
 		h.logger.Error("failed to write response", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -76,7 +83,8 @@ func (h *GetAllStatsHandler) GetStatsForQuestion(w http.ResponseWriter, r *http.
 	}
 }
 
-func (h *GetAllStatsHandler) GetActivity(w http.ResponseWriter, r *http.Request) {
+// GetActivity retrieves daily activity statistics.
+func (h *GetAllStatsHandler) GetActivity(w http.ResponseWriter, _ *http.Request) {
 	stats, err := h.storage.GetActivityStats()
 	if err != nil {
 		h.logger.Error("failed to get stats", zap.Error(err))
@@ -84,8 +92,8 @@ func (h *GetAllStatsHandler) GetActivity(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	statsJson, _ := json.Marshal(stats)
-	_, err = w.Write(statsJson)
+	statsJSON, _ := json.Marshal(stats)
+	_, err = w.Write(statsJSON)
 	if err != nil {
 		h.logger.Error("failed to write response", zap.Error(err))
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -93,7 +101,8 @@ func (h *GetAllStatsHandler) GetActivity(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (h *GetAllStatsHandler) GetSummary(w http.ResponseWriter, r *http.Request) {
+// GetSummary retrieves a summary of all statistics.
+func (h *GetAllStatsHandler) GetSummary(w http.ResponseWriter, _ *http.Request) {
 	var summary models.StatsSummary
 	var err error
 	summary.QuizSessions, err = h.storage.CountQuizSessions()
@@ -124,6 +133,7 @@ func (h *GetAllStatsHandler) GetSummary(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// GetStatsGroupedBySurvey retrieves statistics grouped by survey field.
 func (h *GetAllStatsHandler) GetStatsGroupedBySurvey(w http.ResponseWriter, r *http.Request) {
 	groupBy := r.URL.Query().Get("groupBy")
 	if groupBy == "" {
@@ -144,9 +154,10 @@ func (h *GetAllStatsHandler) GetStatsGroupedBySurvey(w http.ResponseWriter, r *h
 	}
 }
 
+// DeleteResponse deletes a specific response by ID.
 func (h *GetAllStatsHandler) DeleteResponse(w http.ResponseWriter, r *http.Request) {
-	resId := r.PathValue("id")
-	ID, err := strconv.Atoi(resId)
+	resID := r.PathValue("id")
+	ID, err := strconv.Atoi(resID)
 	if err != nil {
 		http.Error(w, "Invalid id", http.StatusBadRequest)
 		return

@@ -9,15 +9,18 @@ import (
 	"stats/internal/storage"
 )
 
+// LeaderboardHandler handles HTTP requests for leaderboard data.
 type LeaderboardHandler struct {
 	storage storage.Storage
 	logger  *zap.Logger
 }
 
+// NewLeaderboardHandler creates a new LeaderboardHandler instance.
 func NewLeaderboardHandler(s storage.Storage, l *zap.Logger) *LeaderboardHandler {
 	return &LeaderboardHandler{storage: s, logger: l}
 }
 
+// Get retrieves the leaderboard with optional limit and minAnswers parameters.
 func (h *LeaderboardHandler) Get(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 

@@ -4,17 +4,20 @@ import (
 	"admin/clients"
 	"admin/internal/models"
 	"encoding/json"
-	"go.uber.org/zap"
 	"net/http"
-    "strconv"
+	"strconv"
+
+	"go.uber.org/zap"
 )
 
+// QuizHandler handles quiz-related HTTP requests.
 type QuizHandler struct {
 	logger      *zap.Logger
 	quizClient  clients.QuizClient
 	statsClient clients.StatsClient
 }
 
+// NewQuizHandler creates a new QuizHandler instance.
 func NewQuizHandler(logger *zap.Logger, quizClient clients.QuizClient, statsClient clients.StatsClient) *QuizHandler {
 	return &QuizHandler{
 		logger:      logger,
@@ -23,6 +26,7 @@ func NewQuizHandler(logger *zap.Logger, quizClient clients.QuizClient, statsClie
 	}
 }
 
+// GetAllQuestions retrieves all quiz questions.
 func (h *QuizHandler) GetAllQuestions(w http.ResponseWriter, _ *http.Request) {
 	questions, err := h.quizClient.GetAllQuestions()
 	if err != nil {
@@ -40,6 +44,7 @@ func (h *QuizHandler) GetAllQuestions(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write(questionsJSON)
 }
 
+// GetAllParameters retrieves all quiz parameters.
 func (h *QuizHandler) GetAllParameters(w http.ResponseWriter, _ *http.Request) {
 	parameters, err := h.quizClient.GetAllParameters()
 	if err != nil {
@@ -57,15 +62,16 @@ func (h *QuizHandler) GetAllParameters(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write(parametersJSON)
 }
 
+// UpdateParameter updates a quiz parameter.
 func (h *QuizHandler) UpdateParameter(w http.ResponseWriter, r *http.Request) {
-	paramId := r.PathValue("id")
+	paramID := r.PathValue("id")
 	var updatedParameter models.Parameter
 	if err := json.NewDecoder(r.Body).Decode(&updatedParameter); err != nil {
 		h.logger.Error("Failed to decode request", zap.Error(err))
 		http.Error(w, "Failed to decode request", http.StatusBadRequest)
 		return
 	}
-	if err := h.quizClient.UpdateParameter(paramId, updatedParameter); err != nil {
+	if err := h.quizClient.UpdateParameter(paramID, updatedParameter); err != nil {
 		h.logger.Error("Failed to update parameter", zap.Error(err))
 		http.Error(w, "Failed to update parameter", http.StatusBadGateway)
 		return
@@ -73,13 +79,14 @@ func (h *QuizHandler) UpdateParameter(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// DeleteParameter deletes a quiz parameter.
 func (h *QuizHandler) DeleteParameter(w http.ResponseWriter, r *http.Request) {
-	paramId := r.PathValue("id")
-	if paramId == "" {
+	paramID := r.PathValue("id")
+	if paramID == "" {
 		http.Error(w, "Missing id", http.StatusBadRequest)
 		return
 	}
-	if err := h.quizClient.DeleteParameter(paramId); err != nil {
+	if err := h.quizClient.DeleteParameter(paramID); err != nil {
 		h.logger.Error("Failed to delete parameter", zap.Error(err))
 		http.Error(w, "Failed to delete parameter", http.StatusBadGateway)
 		return
@@ -87,6 +94,7 @@ func (h *QuizHandler) DeleteParameter(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// GetAllOptions retrieves all quiz options.
 func (h *QuizHandler) GetAllOptions(w http.ResponseWriter, _ *http.Request) {
 	options, err := h.quizClient.GetAllOptions()
 	if err != nil {
@@ -104,9 +112,10 @@ func (h *QuizHandler) GetAllOptions(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write(optionsJSON)
 }
 
+// GetQuestion retrieves a specific question.
 func (h *QuizHandler) GetQuestion(w http.ResponseWriter, r *http.Request) {
-	questionId := r.PathValue("id")
-	question, err := h.quizClient.GetQuestion(questionId)
+	questionID := r.PathValue("id")
+	question, err := h.quizClient.GetQuestion(questionID)
 	if err != nil {
 		h.logger.Error("Failed to get question", zap.Error(err))
 		http.Error(w, "Failed to get question", http.StatusInternalServerError)
@@ -122,15 +131,16 @@ func (h *QuizHandler) GetQuestion(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(questionJSON)
 }
 
+// UpdateQuestion updates a quiz question.
 func (h *QuizHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request) {
-	questionId := r.PathValue("id")
+	questionID := r.PathValue("id")
 	var updatedQuestion models.Question
 	if err := json.NewDecoder(r.Body).Decode(&updatedQuestion); err != nil {
 		h.logger.Error("Failed to decode request", zap.Error(err))
 		http.Error(w, "Failed to decode request", http.StatusBadRequest)
 		return
 	}
-	if err := h.quizClient.UpdateQuestion(questionId, updatedQuestion); err != nil {
+	if err := h.quizClient.UpdateQuestion(questionID, updatedQuestion); err != nil {
 		h.logger.Error("Failed to update question", zap.Error(err))
 		http.Error(w, "Failed to update question", http.StatusInternalServerError)
 		return
@@ -138,6 +148,7 @@ func (h *QuizHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// CreateParameter creates a new quiz parameter.
 func (h *QuizHandler) CreateParameter(w http.ResponseWriter, r *http.Request) {
 	var newParameter models.Parameter
 	if err := json.NewDecoder(r.Body).Decode(&newParameter); err != nil {
@@ -162,15 +173,16 @@ func (h *QuizHandler) CreateParameter(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(paramJSON)
 }
 
+// UpdateOption updates a quiz option.
 func (h *QuizHandler) UpdateOption(w http.ResponseWriter, r *http.Request) {
-	optionId := r.PathValue("id")
+	optionID := r.PathValue("id")
 	var updatedOption models.Option
 	if err := json.NewDecoder(r.Body).Decode(&updatedOption); err != nil {
 		h.logger.Error("Failed to decode request", zap.Error(err))
 		http.Error(w, "Failed to decode request", http.StatusBadRequest)
 		return
 	}
-	if err := h.quizClient.UpdateOption(optionId, updatedOption); err != nil {
+	if err := h.quizClient.UpdateOption(optionID, updatedOption); err != nil {
 		h.logger.Error("Failed to update option", zap.Error(err))
 		http.Error(w, "Failed to update option", http.StatusInternalServerError)
 		return
@@ -178,6 +190,7 @@ func (h *QuizHandler) UpdateOption(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// CreateOption creates a new quiz option.
 func (h *QuizHandler) CreateOption(w http.ResponseWriter, r *http.Request) {
 	var newOption models.Option
 	if err := json.NewDecoder(r.Body).Decode(&newOption); err != nil {
@@ -202,9 +215,10 @@ func (h *QuizHandler) CreateOption(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(optionJSON)
 }
 
+// DeleteOption deletes a quiz option.
 func (h *QuizHandler) DeleteOption(w http.ResponseWriter, r *http.Request) {
-	optionId := r.PathValue("id")
-	if err := h.quizClient.DeleteOption(optionId); err != nil {
+	optionID := r.PathValue("id")
+	if err := h.quizClient.DeleteOption(optionID); err != nil {
 		h.logger.Error("Failed to delete option", zap.Error(err))
 		http.Error(w, "Failed to delete option", http.StatusInternalServerError)
 		return
@@ -212,6 +226,7 @@ func (h *QuizHandler) DeleteOption(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// UpdateParametersOrder updates the order of quiz parameters.
 func (h *QuizHandler) UpdateParametersOrder(w http.ResponseWriter, r *http.Request) {
 	var newOrder []models.Parameter
 	if err := json.NewDecoder(r.Body).Decode(&newOrder); err != nil {
@@ -227,6 +242,7 @@ func (h *QuizHandler) UpdateParametersOrder(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusOK)
 }
 
+// GetSettings retrieves quiz settings.
 func (h *QuizHandler) GetSettings(w http.ResponseWriter, _ *http.Request) {
 	settings, err := h.quizClient.GetSettings()
 	if err != nil {
@@ -244,6 +260,7 @@ func (h *QuizHandler) GetSettings(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write(settingsJSON)
 }
 
+// UpdateSettings updates quiz settings.
 func (h *QuizHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	var newSettings []models.Settings
 	if err := json.NewDecoder(r.Body).Decode(&newSettings); err != nil {
@@ -259,6 +276,7 @@ func (h *QuizHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// ApproveUser approves a user for quiz access.
 func (h *QuizHandler) ApproveUser(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		UserID int `json:"user_id"`
@@ -276,6 +294,7 @@ func (h *QuizHandler) ApproveUser(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
+// UnapproveUser removes quiz access approval for a user.
 func (h *QuizHandler) UnapproveUser(w http.ResponseWriter, r *http.Request) {
   var payload struct{ UserID int `json:"user_id"` }
   if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.UserID == 0 {
@@ -291,6 +310,7 @@ func (h *QuizHandler) UnapproveUser(w http.ResponseWriter, r *http.Request) {
 }
 
 
+// ListActiveSessions retrieves active quiz sessions.
 func (h *QuizHandler) ListActiveSessions(w http.ResponseWriter, r *http.Request) {
 	cutoff := 5
 	if v := r.URL.Query().Get("cutoff"); v != "" {

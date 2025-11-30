@@ -53,8 +53,8 @@ func ValidateAccessToken(next http.HandlerFunc, storage storage.Store) http.Hand
 		log.Printf("User found: %+v", user)
 
 		// Add user information to the request context
-		ctx := context.WithValue(r.Context(), "user_id", user.ID)
-		ctx = context.WithValue(ctx, "user_role", user.Role)
+		ctx := context.WithValue(r.Context(), userIDKey, user.ID)
+		ctx = context.WithValue(ctx, userRoleKey, user.Role)
 		r = r.WithContext(ctx)
 
 		log.Println("Access token validated successfully")

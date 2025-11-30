@@ -9,6 +9,17 @@ import (
 	"net/http"
 )
 
+// ContextKey is a typed key for context values to avoid collisions.
+type ContextKey string
+
+const (
+	// UserIDKey is the context key for user ID.
+	UserIDKey ContextKey = "user_id"
+	// UserRoleKey is the context key for user role.
+	UserRoleKey ContextKey = "user_role"
+)
+
+// VerifyAdmin is a middleware that verifies admin or teacher authentication.
 func VerifyAdmin(next http.HandlerFunc, authClient clients.AuthClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		accessToken, err := ExtractAccessTokenFromRequest(r)
@@ -35,12 +46,14 @@ func VerifyAdmin(next http.HandlerFunc, authClient clients.AuthClient) http.Hand
 				return
 			}
 		}
-		r = r.WithContext(context.WithValue(r.Context(), "user_id", userData.UserID))
-		r = r.WithContext(context.WithValue(r.Context(), "user_role", userData.Role))
+		r = r.WithContext(context.WithValue(r.Context(), UserIDKey, userData.UserID))
+		r = r.WithContext(context.WithValue(r.Context(), UserRoleKey, userData.Role))
 		log.Println("completed token verification")
 		next(w, r)
 	}
 }
+
+// ExtractAccessTokenFromRequest extracts the access token from the request.
 func ExtractAccessTokenFromRequest(r *http.Request) (string, error) {
 	authHeaderValue := r.Header.Get("Authorization")
 	if authHeaderValue != "" {

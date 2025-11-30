@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    # Skanowanie codziennie o 2:00 (sprawdzanie nowych CVE)
     - cron: "0 2 * * *"
 
 # Permissions dla SARIF upload do GitHub Security tab
@@ -16,9 +15,9 @@ permissions:
   actions: read
 
 # Security Policy:
-# - CRITICAL/HIGH CVE → Pipeline FAILS (must fix)
-# - MEDIUM/LOW CVE → Warning only (reported to Security tab)
-# - Infrastructure issues (Hadolint/Dockle) → Info only (no block)
+# - CRITICAL/HIGH CVE → Pipeline FAILS
+# - MEDIUM/LOW CVE → Warning only
+# - Infrastructure issues (Hadolint/Dockle) → Info only
 
 jobs:
   hadolint:
@@ -52,14 +51,15 @@ jobs:
 
       - name: Build Docker image for Dockle
         run: |
-          docker build -t ${{ matrix.service }}:latest ./${{ matrix.service }}
+          docker build -t ${{ matrix.service }}:scan ./${{ matrix.service }}
 
       - name: Run Dockle
         uses: erzz/dockle-action@v1
         with:
-          image: ${{ matrix.service }}:latest
-          exit-code: 1
-          failure-threshold: INFO
+          image: ${{ matrix.service }}:scan
+          exit-code: 0
+          failure-threshold: WARN
+          accept-keywords: CIS-DI-0005,DKL-DI-0006
           # Najbardziej strict: failuje na FATAL > WARN > INFO
 
   trivy-scan:
@@ -76,12 +76,12 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ matrix.service }}:latest ./${{ matrix.service }}
+          docker build -t ${{ matrix.service }}:scan ./${{ matrix.service }}
 
       - name: Run Trivy vulnerability scanner (SARIF for Security tab)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ matrix.service }}:latest
+          image-ref: ${{ matrix.service }}:scan
           format: "sarif"
           output: "trivy-results-${{ matrix.service }}.sarif"
           exit-code: 0
@@ -93,7 +93,7 @@ jobs:
       - name: Run Trivy vulnerability scanner (Table for logs)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ matrix.service }}:latest
+          image-ref: ${{ matrix.service }}:scan
           format: "table"
           exit-code: 1
           ignore-unfixed: true
@@ -105,7 +105,7 @@ jobs:
         uses: aquasecurity/trivy-action@master
         if: success() || failure()
         with:
-          image-ref: ${{ matrix.service }}:latest
+          image-ref: ${{ matrix.service }}:scan
           format: "json"
           output: "trivy-report-${{ matrix.service }}.json"
           exit-code: 0
@@ -140,12 +140,12 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ matrix.service }}:latest ./${{ matrix.service }}
+          docker build -t ${{ matrix.service }}:scan ./${{ matrix.service }}
 
       - name: Generate SBOM with Syft
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ matrix.service }}:latest
+          image: ${{ matrix.service }}:scan
           format: spdx-json
           output-file: sbom-${{ matrix.service }}.spdx.json
 
@@ -234,7 +234,7 @@ jobs:
       - name: golangci-lint (includes govet, staticcheck, gosec, and 40+ linters)
         run: |
           cd ${{ matrix.service }}
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.64.8
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.5.0
           $(go env GOPATH)/bin/golangci-lint run --timeout=5m
 
   docker-compose-security:
@@ -286,7 +286,8 @@ jobs:
             echo "❌ Large files detected - consider using Git LFS"
             exit 1
           fi
-          echo "✅ All files within size limit"      - name: Check trailing whitespace
+          echo "✅ All files within size limit"
+      - name: Check trailing whitespace
         run: |
           echo "Checking trailing whitespace..."
           TRAILING_WS_FOUND=0

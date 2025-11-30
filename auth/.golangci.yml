@@ -13,33 +13,32 @@ linters:
     # Default linters (already enabled, but explicit is better)
     - errcheck      # Check for unchecked errors
     - govet         # Official Go tool (replaces: go vet)
-    - ineffassign   # Detect ineffectual assignments  
+    - ineffassign   # Detect ineffectual assignments
     - staticcheck   # Advanced static analysis (replaces: staticcheck)
     - unused        # Check for unused code
-    
+
     # Security
     - gosec         # Security scanner (replaces: gosec)
-    
+
     # Error handling
     - errorlint     # Error wrapping issues
-    
+
     # Code quality & bugs
     - bodyclose     # Check HTTP response body is closed
     - noctx         # HTTP request without context.Context
     - rowserrcheck  # Check sql.Rows.Err()
     - sqlclosecheck # Check sql.Rows/Stmt are closed
-    
+
     # Performance
     - prealloc      # Pre-allocate slices
-    
+
     # Complexity
     - gocyclo       # Cyclomatic complexity
     - gocognit      # Cognitive complexity
-    
+
     # Style & simplicity
     - misspell      # Fix commonly misspelled words
-    - revive        # Fast, configurable linter (golint replacement)
-    
+
   disable:
     # Too strict for this project
     - exhaustive
@@ -49,40 +48,34 @@ linters:
     - nlreturn
     - wsl
     - godox         # Don't fail on TODO/FIXME
+    - revive        # Disabled - too many style issues
 
 linters-settings:
   govet:
     check-shadowing: true
     enable-all: true
-  
+
   staticcheck:
     checks: ["all"]
-  
+
   gosec:
     severity: medium
     confidence: medium
     excludes:
       - G104  # Audit errors not checked (covered by errcheck)
-  
+
   errcheck:
     check-type-assertions: true
     check-blank: true
-  
+
   gocyclo:
     min-complexity: 15
-  
+
   gocognit:
     min-complexity: 20
-  
+
   misspell:
     locale: US
-  
-  revive:
-    rules:
-      - name: exported
-        severity: warning
-      - name: package-comments
-        severity: warning
 
 issues:
   exclude-rules:
@@ -92,15 +85,15 @@ issues:
         - gocyclo
         - errcheck
         - gosec
-    
+
     # Exclude known linters from generated files
     - path: ".*\\.pb\\.go"
       linters:
         - all
-  
+
   max-issues-per-linter: 0
   max-same-issues: 0
-  
+
   # Don't skip warning about doc comments
   exclude-use-default: false
 

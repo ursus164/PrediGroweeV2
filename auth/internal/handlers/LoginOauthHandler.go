@@ -4,8 +4,8 @@ import (
 	"auth/internal/auth"
 	"auth/internal/models"
 	"auth/internal/storage"
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"go.uber.org/zap"
 	"net/http"
@@ -47,7 +47,7 @@ func (h *OauthLoginHandler) HandleGoogle(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	sessionId, err := auth.GenerateSessionID(64)
+	sessionID, err := auth.GenerateSessionID(64)
 	if err != nil {
 		h.logger.Error("Error generating session id", zap.Error(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -56,7 +56,7 @@ func (h *OauthLoginHandler) HandleGoogle(w http.ResponseWriter, r *http.Request)
 
 	err = h.store.SaveUserSession(models.UserSession{
 		UserID:     dbUser.ID,
-		SessionID:  sessionId,
+		SessionID:  sessionID,
 		Expiration: time.Now().Add(7 * 24 * time.Hour),
 	})
 	if err != nil {
@@ -75,7 +75,7 @@ func (h *OauthLoginHandler) HandleGoogle(w http.ResponseWriter, r *http.Request)
 	http.SetCookie(w, &http.Cookie{
 		Path:     "/",
 		Name:     "session_id",
-		Value:    sessionId,
+		Value:    sessionID,
 		HttpOnly: true,
 		Secure:   false, // Set to true if using HTTPS
 	})
@@ -96,7 +96,8 @@ func (h *OauthLoginHandler) HandleGoogle(w http.ResponseWriter, r *http.Request)
 
 func (h *OauthLoginHandler) verifyGoogleToken(token string) (*models.GoogleUserInfo, error) {
 	fmt.Println("google token", token)
-	req, err := http.NewRequest("GET", "https://www.googleapis.com/oauth2/v2/userinfo?alt=json&access_token="+token, nil)
+	ctx := context.Background()
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://www.googleapis.com/oauth2/v2/userinfo?alt=json&access_token="+token, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -106,9 +107,11 @@ func (h *OauthLoginHandler) verifyGoogleToken(token string) (*models.GoogleUserI
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New(fmt.Sprintf("failed to get user info from google: %d", resp.StatusCode))
+		return nil, fmt.Errorf("failed to get user info from google: %d", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	var userInfo models.GoogleUserInfo
 	if err = userInfo.FromJSON(resp.Body); err != nil {

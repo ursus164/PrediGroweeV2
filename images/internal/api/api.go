@@ -1,3 +1,4 @@
+// Package api contains HTTP API server wiring for the Images service.
 package api
 
 import (
@@ -14,22 +15,25 @@ import (
 	"time"
 )
 
-type ApiServer struct {
+// Server holds dependencies and HTTP server configuration.
+type Server struct {
 	addr       string
 	logger     *zap.Logger
 	authClient *clients.AuthClient
 	db         *sql.DB
 }
 
-func NewApiServer(addr string, logger *zap.Logger, authClient *clients.AuthClient, db *sql.DB) *ApiServer {
-	return &ApiServer{
+// NewServer creates a new API server instance.
+func NewServer(addr string, logger *zap.Logger, authClient *clients.AuthClient, db *sql.DB) *Server {
+	return &Server{
 		addr:       addr,
 		logger:     logger,
 		authClient: authClient,
 		db:         db,
 	}
 }
-func (a *ApiServer) Run() {
+// Run starts the HTTP server and handles graceful shutdown.
+func (a *Server) Run() {
 	mux := http.NewServeMux()
 	a.registerRoutes(mux)
 	corsMiddleware := cors.New(cors.Options{
@@ -69,11 +73,13 @@ func (a *ApiServer) Run() {
 	a.logger.Info("Server exiting")
 
 }
-func (a *ApiServer) registerRoutes(mux *http.ServeMux) {
+func (a *Server) registerRoutes(mux *http.ServeMux) {
 	// health check
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		if _, err := w.Write([]byte("OK")); err != nil {
+			a.logger.Warn("failed to write health response", zap.Error(err))
+		}
 	})
 
 	mux.HandleFunc("GET /images/questions/{questionId}/image/{id}", middleware.VerifyToken(NewQuestionImagesHandler(a.logger, a.db).Handle, a.authClient))

@@ -54,24 +54,26 @@ func (h *LoginHandler) Handle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
-	sessionId, err := auth.GenerateSessionID(64)
+	sessionID, err := auth.GenerateSessionID(64)
 	if err != nil {
 		h.logger.Error("Error generating session id", zap.Error(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	err = h.store.SaveUserSession(models.UserSession{
+	if err = h.store.SaveUserSession(models.UserSession{
 		UserID:     dbUser.ID,
-		SessionID:  sessionId,
+		SessionID:  sessionID,
 		Expiration: time.Now().Add(7 * 24 * time.Hour),
-	})
+	}); err != nil {
+		h.logger.Error("Error saving user session", zap.Error(err))
+	}
 	accessToken, err := auth.GenerateAccessToken(strconv.Itoa(dbUser.ID))
 	if err != nil {
 		h.logger.Error("Error generating access token", zap.Error(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	auth.SetCookie(w, "session_id", sessionId)
+	auth.SetCookie(w, "session_id", sessionID)
 	w.Header().Set("Content-Type", "application/json")
 	data := map[string]interface{}{"user_id": dbUser.ID, "role": dbUser.Role, "access_token": accessToken}
 	err = json.NewEncoder(w).Encode(data)

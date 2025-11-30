@@ -110,7 +110,7 @@ func (a *ApiServer) registerRoutes(mux *http.ServeMux) {
 	// health check
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	})
 
 	// groups

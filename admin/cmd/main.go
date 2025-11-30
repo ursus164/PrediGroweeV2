@@ -1,12 +1,14 @@
+// Package main is the entry point for the admin service.
 package main
 
 import (
 	"admin/clients"
 	"admin/internal/api"
-	_ "github.com/lib/pq"
-	"go.uber.org/zap"
 	"log"
 	"os"
+
+	_ "github.com/lib/pq"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -26,6 +28,6 @@ func main() {
 	authClient := clients.NewRestAuthClient("http://auth:8080/auth", os.Getenv("INTERNAL_API_KEY"), logger)
 	statsClient := clients.NewStatsRestClient("http://stats:8080/stats", os.Getenv("INTERNAL_API_KEY"), logger)
 	quizClient := clients.NewQuizRestClient("http://quiz:8080/quiz", os.Getenv("INTERNAL_API_KEY"), logger)
-	apiServer := api.NewApiServer(":8080", logger, authClient, statsClient, quizClient)
+	apiServer := api.NewAPIServer(":8080", logger, authClient, statsClient, quizClient)
 	apiServer.Run()
 }

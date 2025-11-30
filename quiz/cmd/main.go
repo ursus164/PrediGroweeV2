@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	_ "github.com/lib/pq"
@@ -48,16 +49,16 @@ func main() {
 	db.SetConnMaxLifetime(5 * time.Minute)
 
 	// Verify database connection
+	ctx := context.Background()
 	for i := 1; i <= PingDbAttempts; i++ {
-		err = db.Ping()
+		err = db.PingContext(ctx)
 		if err == nil {
 			break
-		} else {
-			logger.Error(fmt.Sprintf("Failed to Ping the database (attempt: %d/%d)", i, PingDbAttempts), zap.Error(err))
 		}
+		logger.Error(fmt.Sprintf("Failed to Ping the database (attempt: %d/%d)", i, PingDbAttempts), zap.Error(err))
 		time.Sleep(2 * time.Second)
 	}
-	if err = db.Ping(); err != nil {
+	if err = db.PingContext(ctx); err != nil {
 		logger.Fatal("Failed to ping database, exiting", zap.Error(err))
 	}
 	postgresStorage := storage.NewPostgresStorage(db, logger)

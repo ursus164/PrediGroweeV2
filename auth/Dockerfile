@@ -1,5 +1,5 @@
 # Use the official Golang image as the base image
-FROM golang:1.22-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -17,9 +17,9 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/main.go
 
 # Use a smaller base image for the final stage
-FROM alpine:latest
+FROM alpine:3.21
 
-RUN apk --no-cache add ca-certificates curl
+RUN apk --no-cache add ca-certificates=20250911-r0 curl=8.14.1-r2 busybox=1.37.0-r14
 
 WORKDIR /app
 

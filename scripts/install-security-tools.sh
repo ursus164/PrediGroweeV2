@@ -65,7 +65,6 @@ else
         echo "  Instaluję govulncheck..."
         go install golang.org/x/vuln/cmd/govulncheck@latest
 
-        # Dodaj $GOPATH/bin do PATH jeśli nie ma
         if [[ ":$PATH:" != *":$HOME/go/bin:"* ]]; then
             echo "  Dodaję ~/go/bin do PATH..."
             echo 'export PATH=$PATH:$HOME/go/bin' >> ~/.bashrc
@@ -78,7 +77,7 @@ else
     fi
 fi
 
-# 4a. golangci-lint - Meta-linter (includes: govet, staticcheck, gosec, errcheck, and 40+ linters)
+# 4a. golangci-lint
 echo -e "\n${YELLOW}[4a/6] Instalacja golangci-lint (Go Meta-linter)...${NC}"
 if command -v golangci-lint &> /dev/null; then
     echo -e "${GREEN}✓ golangci-lint już zainstalowany ($(golangci-lint --version | head -n1))${NC}"
@@ -93,7 +92,7 @@ else
     fi
 fi
 
-# 5. Hadolint - Dockerfile Linter
+# 5. Hadolint
 echo -e "\n${YELLOW}[5/8] Instalacja Hadolint (Dockerfile Linter)...${NC}"
 if command -v hadolint &> /dev/null; then
     echo -e "${GREEN}✓ Hadolint już zainstalowany ($(hadolint --version))${NC}"
@@ -106,7 +105,7 @@ else
     echo -e "${GREEN}✓ Hadolint zainstalowany${NC}"
 fi
 
-# 6. Dockle - Dockerfile Security Linter
+# 6. Dockle 
 echo -e "\n${YELLOW}[6/8] Instalacja Dockle (Dockerfile Security Linter)...${NC}"
 if command -v dockle &> /dev/null; then
     echo -e "${GREEN}✓ Dockle już zainstalowany ($(dockle --version))${NC}"

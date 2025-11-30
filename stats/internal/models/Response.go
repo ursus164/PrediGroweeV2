@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// QuestionResponse represents a user's answer to a quiz question.
 type QuestionResponse struct {
 	ID         int        `json:"id"`
 	QuestionID int        `json:"question_id"`
@@ -18,6 +19,7 @@ type QuestionResponse struct {
 	TimeSpent  int        `json:"time_spent"`
 }
 
+// FromJSON decodes a QuestionResponse from JSON.
 func (q *QuestionResponse) FromJSON(r io.Reader) error {
 	return json.NewDecoder(r).Decode(q)
 }

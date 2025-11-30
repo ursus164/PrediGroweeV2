@@ -1,7 +1,9 @@
+// Package clients provides HTTP client implementations for communicating with external services.
 package clients
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"go.uber.org/zap"
@@ -9,11 +11,13 @@ import (
 	"stats/internal/models"
 )
 
+// AuthClient is an HTTP client for authenticating requests with the auth service.
 type AuthClient struct {
 	addr   string
 	logger *zap.Logger
 }
 
+// NewAuthClient creates a new AuthClient instance.
 func NewAuthClient(addr string, logger *zap.Logger) *AuthClient {
 	return &AuthClient{
 		addr:   addr,
@@ -21,6 +25,7 @@ func NewAuthClient(addr string, logger *zap.Logger) *AuthClient {
 	}
 }
 
+// VerifyAuthToken verifies an authentication token and returns the associated user data.
 func (c *AuthClient) VerifyAuthToken(token string) (models.UserData, error) {
 	body := struct {
 		AuthToken string `json:"token"`
@@ -33,7 +38,7 @@ func (c *AuthClient) VerifyAuthToken(token string) (models.UserData, error) {
 		return models.UserData{}, fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", c.addr+"/verify", bytes.NewBuffer(jsonPayload))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", c.addr+"/verify", bytes.NewBuffer(jsonPayload))
 	if err != nil {
 		return models.UserData{}, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -46,7 +51,11 @@ func (c *AuthClient) VerifyAuthToken(token string) (models.UserData, error) {
 	if err != nil {
 		return models.UserData{}, fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			c.logger.Error("failed to close response body", zap.Error(err))
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		c.logger.Error("unexpected status code", zap.Error(err), zap.Int("status_code", resp.StatusCode))

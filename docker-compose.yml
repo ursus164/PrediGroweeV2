@@ -2,8 +2,8 @@ services:
   nginx:
     image: nginx:alpine
     ports:
-      - "8080:8080"
-      - "3001:3000"
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:3001:3000"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
@@ -12,9 +12,44 @@ services:
       - quiz
       - stats
       - admin
+      - frontend
     networks:
       - frontend_network
       - backend_network
+      - monitoring
+    labels:
+      logging: "promtail"
+    # Security hardening
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - CHOWN
+      - SETGID
+      - SETUID
+    security_opt:
+      - no-new-privileges:true
+      - apparmor=docker-default
+    read_only: true
+    tmpfs:
+      - /var/run:size=10M,mode=0755
+      - /var/cache/nginx:size=100M,mode=0755
+      - /var/log/nginx:size=50M,mode=0755
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+          pids: 50
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Postgres for Auth
   auth_db:
@@ -27,7 +62,7 @@ services:
       - auth_db_data:/var/lib/postgresql/data
       - ./database-init/auth:/docker-entrypoint-initdb.d
     ports:
-      - "5433:5432"  # Different port for local development
+      - "127.0.0.1:5433:5432"  # Different port for local development
     networks:
       - db_network
     healthcheck:
@@ -35,6 +70,30 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # Security hardening
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+      - apparmor=docker-default
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+      - /var/run/postgresql:size=10M,mode=0755
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+          pids: 100
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # Postgres for Quiz
   quiz_db:
@@ -47,7 +106,7 @@ services:
       - quiz_db_data:/var/lib/postgresql/data
       - ./database-init/quiz:/docker-entrypoint-initdb.d
     ports:
-      - "5435:5432"  # Different port for local development
+      - "127.0.0.1:5435:5432"  # Different port for local development
     networks:
       - db_network
     healthcheck:
@@ -55,6 +114,30 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # Security hardening
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+      - apparmor=docker-default
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+      - /var/run/postgresql:size=10M,mode=0755
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+          pids: 100
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # Postgres for Stats
   stats_db:
@@ -67,7 +150,7 @@ services:
       - stats_db_data:/var/lib/postgresql/data
       - ./database-init/stats:/docker-entrypoint-initdb.d
     ports:
-      - "5436:5432"  # Different port for local development
+      - "127.0.0.1:5436:5432"  # Different port for local development
     networks:
       - db_network
     healthcheck:
@@ -75,6 +158,30 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # Security hardening
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+      - apparmor=docker-default
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+      - /var/run/postgresql:size=10M,mode=0755
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+          pids: 100
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   images_db:
     image: postgres:13
@@ -86,7 +193,7 @@ services:
       - images_db_data:/var/lib/postgresql/data
       - ./database-init/images:/docker-entrypoint-initdb.d
     ports:
-      - "5438:5432"  # Different port for local development
+      - "127.0.0.1:5438:5432"  # Different port for local development
     networks:
       - db_network
     healthcheck:
@@ -94,6 +201,30 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # Security hardening
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+      - apparmor=docker-default
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+      - /var/run/postgresql:size=10M,mode=0755
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+          pids: 100
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # Auth microservice
   auth:
@@ -111,11 +242,34 @@ services:
       - ENV=local
       - JWT_SECRET=${JWT_SECRET}
       - INTERNAL_API_KEY=api_key
+      - GMAIL_USER=${GMAIL_USER:-test@example.com}
+      - GMAIL_PASSWORD=${GMAIL_PASSWORD:-testpassword}
     depends_on:
       - auth_db
     networks:
       - backend_network
+      - monitoring
       - db_network
+    labels:
+      logging: "promtail"
+    # Security hardening
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      - apparmor=docker-default
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+          pids: 100
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   # Images microservice
   images:
@@ -138,7 +292,28 @@ services:
       - images_db
     networks:
       - backend_network
+      - monitoring
       - db_network
+    labels:
+      logging: "promtail"
+    # Security hardening
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      - apparmor=docker-default
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+          pids: 100
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   # Quiz microservice
   quiz:
@@ -160,7 +335,28 @@ services:
       - auth
     networks:
       - backend_network
+      - monitoring
       - db_network
+    labels:
+      logging: "promtail"
+    # Security hardening
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      - apparmor=docker-default
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+          pids: 100
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   stats:
     build:
@@ -181,7 +377,28 @@ services:
         - auth
     networks:
       - backend_network
+      - monitoring
       - db_network
+    labels:
+      logging: "promtail"
+    # Security hardening
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      - apparmor=docker-default
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+          pids: 100
+        reservations:
+          cpus: '0.25'
+          memory: 256M
   admin:
     build:
       context: ./admin
@@ -195,6 +412,27 @@ services:
       - auth
     networks:
       - backend_network
+      - monitoring
+    labels:
+      logging: "promtail"
+    # Security hardening
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      - apparmor=docker-default
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M,mode=1777
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+          pids: 100
+        reservations:
+          cpus: '0.25'
+          memory: 256M
   frontend:
     build:
       context: ../PrediGroweeV2-UI
@@ -222,6 +460,34 @@ services:
     networks:
       - frontend_network
       - backend_network
+      - monitoring
+    labels:
+      logging: "promtail"
+    # Security hardening
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      - apparmor=docker-default
+    read_only: true
+    tmpfs:
+      - /tmp:size=200M,mode=1777
+      - /app/.next:size=500M,mode=0755,uid=1001,gid=1001
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+          pids: 200
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
   auth_db_data:
@@ -238,3 +504,7 @@ networks:
     driver: bridge
   db_network:
     driver: bridge
+  monitoring:
+    driver: bridge
+    external: true
+    name: predigroweev2_monitoring

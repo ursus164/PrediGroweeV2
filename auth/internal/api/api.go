@@ -1,3 +1,4 @@
+// Package api provides the HTTP API server and routing for the authentication service.
 package api
 
 import (
@@ -108,9 +109,9 @@ func (a *ApiServer) registerRoutes(router *http.ServeMux) {
 func (a *ApiServer) HealthCheckHandler(w http.ResponseWriter, _ *http.Request) {
 	if err := a.storage.Ping(); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"status": "unhealthy"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "unhealthy"})
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
 }
